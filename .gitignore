@@ -16,12 +16,14 @@
 **/Makefile
 **/CMakeFiles
 **/CMakeCache.txt
+**/CMakeLists.txt
 **/cmake_install.cmake
 **/bin
 **/build
 **/lib
 **/msg_gen
 **/srv_gen
+**/*.dox
 ROS_NOBUILD
 
 # ROS generated
