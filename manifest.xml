@@ -1,0 +1,18 @@
+<package>
+  <description brief="ros_simple_rl">
+
+     ros_simple_rl
+
+  </description>
+  <author>Gordon</author>
+  <license>BSD</license>
+  <review status="unreviewed" notes=""/>
+  <url>http://ros.org/wiki/ros_simple_rl</url>
+  <depend package="auv_actions"/>
+  <depend package="auv_msgs"/>
+  <depend package="my_msgs"/>
+  <depend package="srv_msgs"/>
+
+</package>
+
+

@@ -1,0 +1,173 @@
+#! /usr/bin/python
+
+from srl.basis_functions.mmlf_fourier import Fourier
+from pyrl.basis.tilecode import TileCodingBasis
+from utilities.gaussian import gaussian1D
+import numpy as np
+
+
+def xf(i):
+    return np.clip(i / 0.6, 0.0, 1.0)
+
+class RBFBasisFunctions(object):
+    def __init__(self, resolution=20, scalar=3.0, num_dims=1):
+        self.resolution = resolution
+        self.active_features = 3
+        self.num_dims = num_dims
+        self.scalar = scalar    #[3.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0]
+        # scalar = [1.20, 1.20, 1.25, 1.25, 1.30, 1.30, 1.35, 1.35, 1.40, 1.40, 1.45, 1.45, 1.50, 1.50,
+        #           1.55, 1.55, 1.65, 1.65, 1.70, 1.70, 1.80, 1.80]  # higher number == less generalisation
+        # scalar = [1.60, 1.60, 1.60, 1.60, 1.60, 1.60, 1.60, 1.60, 1.60, 1.60]  # higher number == less generalisation
+        self.centres = np.linspace(-1.0, 1.0, self.resolution) #[0.0, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.75, 1.0]
+        self.sigma = 1.0 / np.sqrt(self.scalar*self.resolution)    #0.2
+    def setSigma(self, sigma):
+        self.sigma = sigma
+    def computeFeatures(self, state, goalState=False, approx="critic"):
+        # state_enhanced = [state[0], state[1], state[2], state[1] * state[2]]
+        # state_reduced = [state[1], state[2]]
+
+        # if state[0] >= 0.0:
+        #     x1 = state[0]
+        # else:
+        #     x1 = 0.0
+        # x2 = state[1]
+        # if state[0] < 0.0:
+        #     x3 = state[0]
+        # else:
+        #     x3 = 0.0
+        if type(state) == list:
+            state = {"angle": 0.0,
+                     "yaw_deriv": 0.0,
+                     "distance": 0.0,
+                     "yaw_dt": 0.0,
+                     "reward": 0.0}
+
+        # poly_state = np.array([x1, x2, x1**2, x1*x2, x1*x3, x1*x4, x2**2, x3, x4,])
+        # poly_state = np.array([x1, x2, x3, x4, x1**2, x1*x2, x1*x3, x1*x4, x2**2, x2*x3, x2*x4, x3**2, x3*x4,
+        #                        x4**2, x4**3, (x1**2)*(x3**2), 1.0])
+        # poly_state = np.array([x1, x2, x3, x4, x1*x3, x2*x4, x1**2, x3**2, x1**3, x3**3, 1.0])
+        # rbf_height = 1.0 / (self.resolution * len(state))
+
+        # x1 = state["angle"]
+        # x2 = state["distance"]
+        x1 = state["angle"]
+        x2 = state["distance"]
+        x3 = state["yaw_deriv"]
+        # x3 = state["yaw_dt"]
+        x4 = state["reward"]
+
+        # x4 = state[3]
+        # poly_state = np.array([x1, x1**2, x1**3, x2])#, x3, x3**2, x3**3])
+        # rbfs = [[gaussian1D(s_dim, centre, 1.0, self.sigma) for centre in self.centres] for s_dim in poly_state]
+        if approx=="critic":
+            if self.num_dims == 0:
+                poly_state = np.array([x1, x1**3, x3, x3**3])#, x3, x3**2, x3**3])
+            elif self.num_dims == 1:
+                poly_state = np.array([x1])
+                # poly_state = np.array([x1, x1**3, x3, x3**3])
+            elif self.num_dims == 2:
+                poly_state = np.array([x1, abs(x3)])
+                # poly_state = np.array([x1, x2, x3, x4])#abs(x1)**3])
+            elif self.num_dims == 3:
+                poly_state = np.array([x1, x2, x4])
+                # poly_state = np.array([x1, x1**3, x2, x2**3, x4, x4**3])
+                # poly_state = np.array([x1, x1**3, x2, x2**3, x4, x4**3])#, x3, x3**2, x3**3])
+            rbfs = [[gaussian1D(s_dim, centre, 1.0, self.sigma) for centre in self.centres] for s_dim in poly_state]
+            # rbfs = [[gaussian1D(x1, centre, 1.0, 1.0 / np.sqrt(3.0*self.resolution)) for centre in self.centres],
+            #         [gaussian1D(x3, centre, 1.0, 1.0 / np.sqrt(15.0*self.resolution)) for centre in self.centres]]
+        else:
+            synth_dist = xf(state["distance"])
+            if self.num_dims == 0:
+                state_list = np.array([x1, x1**3, x3, x3**3])#, x3, x3**2, x3**3])
+            elif self.num_dims == 1:
+                state_list = np.array([x1])
+                # state_list = np.array([x1, x1**3, x3, x3**3])
+            elif self.num_dims == 2:
+                state_list = np.array([x1, abs(x3)])
+                # state_list = np.array([x1, x2, x3, x4])#abs(x1)**3])
+            elif self.num_dims == 3:
+                state_list = np.array([x1, x2, x4])
+                # state_list = np.array([x1, x1**3, x2, x2**3, x4, x4**3])
+                # state_list = np.array([x1, x1**3, x2, x2**3, x4, x4**3])
+            rbfs = [[gaussian1D(s_dim, centre, 1.0, self.sigma) for centre in self.centres] for s_dim in state_list]
+            # rbfs = [[gaussian1D(x1, centre, 1.0, 1.0 / np.sqrt(3.0*self.resolution)) for centre in self.centres],
+            #         [gaussian1D(x3, centre, 1.0, 1.0 / np.sqrt(15.0*self.resolution)) for centre in self.centres]]
+        # rbfs = []
+        # for s_dim in state:
+        #     dim_rbfs = [gaussian1D(s_dim, centre, 1.0, self.sigma) for centre in self.centres]
+        #     for i in range(10):
+        #         dim_rbfs.append(0.0)
+        #     rbfs.append(dim_rbfs)
+
+        rbfs = np.array(rbfs)
+        # print("Rbfs: {0}".format(rbfs.tolist()))
+        # print("RBFS: {0}".format(state))
+
+        # Make sure we do not generalise across a state dimensions range that we shouldn't
+        # e.g. the best action is of opposite direction for -0.1 than 0.1 so the rbfs shouldn't generalise across
+        # the mid point of the state dimensions range
+        # print("half way: {0}".format(half_way))
+        # if approx == "policy":
+        # half_way = max(rbfs.shape) / 2
+        # if state[0] >= 0.0: # signifies change in direction of angle to goal - should not generalise across this line
+        #     rbfs[0][:half_way] = 0.0
+        # else:
+        #     rbfs[0][half_way:] = 0.0
+        # if state[2] >= 0.0: # signifies Zero in East direction - should not generalise across this line
+        #     rbfs[2][:half_way] = 0.0
+        # else:
+        #     rbfs[2][half_way:] = 0.0
+        # if state[1] >= 0.0: # signifies Zero in East direction - should not generalise across this line
+        #     rbfs[1][:half_way] = 0.0
+        # else:
+        #     rbfs[1][half_way:] = 0.0
+        # if state[3] >= 0.0: # signifies Zero in East direction - should not generalise across this line
+        #     rbfs[3][:half_way] = 0.0
+        # else:
+        #     rbfs[3][half_way:] = 0.0
+        return rbfs.flatten()
+        # if approx=="critic":
+        #     return poly_state
+        # else:
+        #     return state_list
+
+class TileCodingBasisFunctions(object):
+    def __init__(self, idx=0):
+        self.idx = idx
+        self.num_features = [1024, 128, 128]
+        self.num_tilings = [100, 24, 24]
+        # self.feature_ranges = [[0.0, 1.0], [0.0, 1.0], [0.0, 1.0], [0.0, 1.0], [0.0, 1.0], [0.0, 1.0], [0.0, 1.0]]
+        self.feature_ranges = [[-1.0, 1.0], [-1.0, 1.0], [-1.0, 1.0], [-1.0, 1.0]]
+        self.tile_coding = TileCodingBasis(len(self.feature_ranges), self.feature_ranges, self.num_tilings[idx], self.num_features[idx])
+        self.resolution = self.num_features
+    def computeFeatures(self, state, goalState=False):
+        if not goalState:
+            # x1 = state[0]
+            # x2 = state[1]
+            # x3 = state[2]
+            # poly_state = np.array([x1**2, x1**3, x1*x2, x2**2, x2**3, 0.1])
+            # poly_state = np.array([x1**2, x1**3, x1*x2, x1*x3, x2**2, x2**3, x2*x3, x3**2, x3**3, 0.1])
+            return self.tile_coding.computeFeatures(state)
+            # return poly_state
+        else:
+            return np.array([0.0 for i in range(self.num_features[self.idx])])
+
+class PolynomialBasisFunctions(object):
+    def __init__(self, idx=0):
+        self.resolution = 10
+    def computeFeatures(self, state, goalState=False):
+        if not goalState:
+            if state[0] >= 0.0:
+                x1 = state[0]
+            else:
+                x1 = 0.0
+            x2 = state[1]
+            if state[0] < 0.0:
+                x3 = state[0]
+            else:
+                x3 = 0.0
+            # poly_state = np.array([x1**2, x1**3, x1*x2, x2**2, x2**3, 0.1])
+            poly_state = np.array([x1**2, x1**3, x1*x2, x1*x3, x2**2, x2**3, x2*x3, x3**2, x3**3, 0.1])
+            return poly_state
+        else:
+            return np.array([0.0 for i in range(self.num_features)])
