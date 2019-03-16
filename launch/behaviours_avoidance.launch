@@ -1,0 +1,11 @@
+<launch>
+	
+	<!--start action servers that execute atomic PDDL actions -->
+	<!--<group ns="behaviours">-->
+	<node name="translation_behaviour"     pkg="behaviours" type="surge_behaviour.py"             output="log"/>
+	<node name="yaw_behaviour"             pkg="behaviours" type="yaw_behaviour_thruster.py"      output="log"/>
+
+
+    <node name="coordinator"               pkg="behaviours" type="coordinator.py"                 output="screen"/>
+	<!--</group>-->
+</launch>

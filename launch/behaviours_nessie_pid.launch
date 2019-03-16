@@ -1,0 +1,16 @@
+<launch>
+	
+	<!--start action servers that execute atomic PDDL actions -->
+	<!-- Separate behaviours -->
+	<node name="surge_behaviour"     pkg="behaviours" type="nessie_surge_pid.py"            output="log"/>
+	<node name="sway_behaviour"      pkg="behaviours" type="nessie_sway_pid.py"             output="log"/>
+    <node name="depth_behaviour"     pkg="behaviours" type="nessie_depth_pid.py"            output="log"/>
+	<node name="pitch_behaviour"     pkg="behaviours" type="nessie_pitch_pid.py"            output="log"/>
+
+	<node name="yaw_behaviour"       pkg="behaviours" type="nessie_yaw_pid.py"		        output="log"/>
+	<!--<node name="yaw_behaviour"       pkg="behaviours" type="yaw_behaviour_thruster.py"		output="log"/>-->
+
+	<!-- Coordinator to combine the outputs of the above independent behaviours -->
+    <node name="coordinator"         pkg="behaviours" type="coordinator_full_pid.py"        output="screen"/>
+	<!--</group>-->
+</launch>
