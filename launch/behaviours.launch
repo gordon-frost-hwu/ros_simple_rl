@@ -2,10 +2,10 @@
 	
 	<!--start action servers that execute atomic PDDL actions -->
 	<!--<group ns="behaviours">-->
-	<node name="translation_behaviour"     pkg="behaviours" type="surge_behaviour.py"             output="log"/>
-	<node name="yaw_behaviour"             pkg="behaviours" type="yaw_behaviour.py"               output="log"/>
+	<node name="translation_behaviour"     pkg="ros_simple_rl" type="surge_behaviour.py"             output="log"/>
+	<node name="yaw_behaviour"             pkg="ros_simple_rl" type="yaw_behaviour.py"               output="log"/>
 
 
-    <node name="coordinator"               pkg="behaviours" type="coordinator.py"                 output="screen"/>
+    <node name="coordinator"               pkg="ros_simple_rl" type="coordinator.py"                 output="screen"/>
 	<!--</group>-->
 </launch>

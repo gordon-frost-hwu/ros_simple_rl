@@ -2,13 +2,13 @@
 	
 	<!--start action servers that execute atomic PDDL actions -->
 	<!-- Separate behaviours -->
-	<node name="surge_behaviour"     pkg="behaviours" type="surge_behaviour_3.py"            output="log"/>
-	<node name="sway_behaviour"      pkg="behaviours" type="sway_behaviour_3.py"             output="log"/>
-	<node name="yaw_behaviour"       pkg="behaviours" type="yaw_behaviour_thruster.py"       output="log"/>
-    <node name="depth_behaviour"     pkg="behaviours" type="depth_behaviour.py"              output="log"/>
-	<node name="pitch_behaviour"     pkg="behaviours" type="pitch_behaviour.py"              output="log"/>
+	<node name="surge_behaviour"     pkg="ros_simple_rl" type="surge_behaviour_3.py"            output="log"/>
+	<node name="sway_behaviour"      pkg="ros_simple_rl" type="sway_behaviour_3.py"             output="log"/>
+	<node name="yaw_behaviour"       pkg="ros_simple_rl" type="yaw_behaviour_thruster.py"       output="log"/>
+    <node name="depth_behaviour"     pkg="ros_simple_rl" type="depth_behaviour.py"              output="log"/>
+	<node name="pitch_behaviour"     pkg="ros_simple_rl" type="pitch_behaviour.py"              output="log"/>
 
 	<!-- Coordinator to combine the outputs of the above independent behaviours -->
-    <node name="coordinator"         pkg="behaviours" type="coordinator_full.py"             output="screen"/>
+    <node name="coordinator"         pkg="ros_simple_rl" type="coordinator_full.py"             output="screen"/>
 	<!--</group>-->
 </launch>
