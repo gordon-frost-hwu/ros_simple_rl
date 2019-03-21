@@ -1,0 +1,20 @@
+<launch>
+    <include file="$(find ros_simple_rl)/launch/behaviours_3.launch"/>
+    <param name = "/simulation_type" value="inspect" type="string"/>
+
+    <!--start nav and pilot -->
+    <node name="do_hover_action"   pkg="auv_actions" type="DoHover.py"     output="log"/>
+    <!--<node name="goal_perception"   pkg="ros_simple_rl" type="perception_simulation_module.py"     output="log"/>-->
+
+    <!--Useful logging nodes such as logging the nav data-->
+    <node name="nav_logger"   pkg="ros_simple_rl" type="log_nav.py"     output="screen"/>
+
+    <!-- Node used for calculation of features which depend on the goal that the behaviour based system
+     if working from/trying to achieve -->
+    <node name="dynamic_basis_functions"   pkg="ros_simple_rl" type="radial_basis_functions.py"     output="log"/>
+
+    <!-- Node allows any other ROS node to shutdown all nodes in this launch file -->
+    <node name="required_node_actions"   pkg="ros_simple_rl" type="required_node.py"  output="log" required="True"/>
+
+
+</launch>

@@ -1,0 +1,17 @@
+<launch>
+    <include file="$(find ros_simple_rl)/launch/behaviours_thruster.launch"/>
+    <param name = "/simulation_type" value="thruster" type="string"/>
+
+    <!--start nav and pilot -->
+    <node name="do_hover_action"   pkg="auv_actions" type="DoHover.py"     output="log"/>
+    <node name="goal_perception"   pkg="ros_simple_rl" type="perception_simulation_module.py"     output="log"/>
+
+    <!--Useful logging nodes such as logging the nav data-->
+    <node name="nav_logger"   pkg="ros_simple_rl" type="log_nav.py"     output="log"/>
+
+    <!-- Node used for calculation of features which depend on the goal that the behaviour based system
+     if working from/trying to achieve -->
+    <node name="dynamic_basis_functions"   pkg="ros_simple_rl" type="radial_basis_functions.py"     output="log"/>
+
+
+</launch>
