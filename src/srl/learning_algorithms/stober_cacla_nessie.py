@@ -3,7 +3,7 @@
 from __future__ import print_function
 import __builtin__
 
-import roslib; roslib.load_manifest("rl_pybrain")
+import roslib; roslib.load_manifest("ros_simple_rl")
 import rospy
 
 # def print(*args, **kwargs):
@@ -37,9 +37,9 @@ from srl.learning_algorithms.stober_td_learning import TDLinear
 from srl.learning_algorithms.true_online_td_lambda import TrueOnlineTDLambda
 from srl.learning_algorithms.lstd_algorithm import LSTD
 
-from utilities.variable_normalizer import DynamicNormalizer
-from utilities.moving_differentiator import SlidingWindow
-from utilities.gaussian import gaussian1D
+from variable_normalizer import DynamicNormalizer
+from moving_differentiator import SlidingWindow
+from gaussian import gaussian1D
 
 from rospkg import RosPack
 rospack = RosPack()

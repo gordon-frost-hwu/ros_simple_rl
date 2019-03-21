@@ -1,5 +1,5 @@
 #! /usr/bin/python
-import roslib; roslib.load_manifest("rl_pybrain")
+import roslib; roslib.load_manifest("ros_simple_rl")
 import rospy
 
 from my_msgs.msg import Goals

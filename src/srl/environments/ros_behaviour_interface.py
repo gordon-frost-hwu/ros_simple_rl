@@ -1,11 +1,11 @@
 
-import roslib;roslib.load_manifest("rl_pybrain")
+import roslib;roslib.load_manifest("ros_simple_rl")
 import rospy
 from srv_msgs.srv import DisableOutput, ChangeParam, DoHover, LogNav
 from std_srvs.srv import Empty, EmptyResponse
 from std_msgs.msg import Bool
 from vehicle_interface.msg import Vector6
-from utilities.nav_class import Nav
+from nav_class import Nav
 
 class ROSBehaviourInterface(Nav):
     """ Class that encapsulates the ROS services needed to use the Nessie platform in a RL environment using the
