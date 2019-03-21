@@ -9,7 +9,7 @@ from matplotlib import cm
 import sys
 from rospkg import RosPack
 from math import log, sqrt
-from utilities.load_goals import load_goals
+from load_goals import load_goals
 rospack = RosPack()
 
 SCALE_OUTPUT = False

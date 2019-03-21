@@ -7,7 +7,7 @@ from visualization_msgs.msg import Marker, MarkerArray
 from tf.transformations import quaternion_from_euler
 from numpy import pi, deg2rad, rad2deg, sqrt, arctan
 import sys
-from utilities.nav_class import Nav
+from nav_class import Nav
 NINETY_DEGREES = pi / 2.0
 WORLD_FRAME = "/map"
 

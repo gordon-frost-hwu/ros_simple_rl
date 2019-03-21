@@ -11,8 +11,8 @@ import roslib; roslib.load_manifest('ros_simple_rl')
 import rospy
 import numpy as np
 import math
-from utilities.load_goals import load_goals
-from utilities.cartesian_distance_fov import CartesianDistanceFov
+from load_goals import load_goals
+from cartesian_distance_fov import CartesianDistanceFov
 from rospkg import RosPack
 rospack = RosPack()
 

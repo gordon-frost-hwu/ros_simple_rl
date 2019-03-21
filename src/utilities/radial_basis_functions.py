@@ -1,8 +1,8 @@
 #! /usr/bin/env python
 import roslib;roslib.load_manifest("ros_simple_rl")
 import rospy
-from utilities.load_goals import load_goals
-from utilities.gaussian import gaussian2D
+from load_goals import load_goals
+from gaussian import gaussian2D
 from vehicle_interface.msg import Vector6
 from srv_msgs.srv import Features, FeaturesResponse
 from std_msgs.msg import Float32
