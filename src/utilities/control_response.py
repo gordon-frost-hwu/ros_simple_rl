@@ -7,9 +7,6 @@ from std_msgs.msg import Bool
 from srv_msgs.srv import LogNav, LogNavResponse
 from vehicle_interface.msg import PilotRequest
 
-# sync signal start
-# pilot request for X seconds
-# sync signal end
 LOG_NAV_SERVICE_TOPIC = "/nav/log_nav"
 
 class ControlResponse(object):
@@ -27,18 +24,17 @@ if __name__ == '__main__':
     call_logging_srv(log_nav=True, dir_path="/tmp/", file_name_descriptor="ControlResponse")
     
     pilotRequest = PilotRequest()
-    pilotRequest.velocity = [0, 0, 0, 0, 0, 1]
+    pilotRequest.velocity = [0, 0, 0, 0, 0, 0.25]
     
     rate = rospy.Rate(10)
     signalTrue = Bool()
     signalTrue.data = True
     
-    
     count = 0
     while not rospy.is_shutdown():
         signal.publish(signalTrue)
         pilot.publish(pilotRequest)
-        if count > 100:
+        if count > 50:
             break
         count = count + 1
         rate.sleep()
@@ -46,5 +42,9 @@ if __name__ == '__main__':
     signalFalse.data = False
     signal.publish(signalFalse)
     print("Stopping nav recording")
+
+    pilotRequest.disable_axis = [1, 1, 1, 1, 1, 1]
+    pilot.publish(pilotRequest)
+    rospy.sleep(20)
     call_logging_srv(log_nav=False, dir_path="/tmp/", file_name_descriptor="ControlResponse")
     rospy.spin()
