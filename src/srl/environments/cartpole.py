@@ -5,7 +5,6 @@ from math import sin, cos
 import time
 from numpy import clip
 from scipy import eye, matrix, random, asarray
-from utilities.gaussian import gaussian1D
 
 class CartPoleEnvironment(object):
     """ This environment implements the cart pole balancing benchmark, as stated in:
@@ -25,7 +24,7 @@ class CartPoleEnvironment(object):
     mc = 1.0
     dt = 0.02
 
-    randomInitialization = False
+    randomInitialization = True
 
     def __init__(self, polelength=None):
         if polelength != None:
@@ -56,10 +55,9 @@ class CartPoleEnvironment(object):
             return 0.0
         else:
             return 1.0
-            # return gaussian1D(self.getPoleAngles()[0], 0.0, 1.0, 0.1)# + gaussian1D(self.getCartPosition(), 0.0, 0.5, 1.0)
 
     def episodeEnded(self):
-        if abs(self.sensors[0]) > 3.14/15.0:# or abs(self.sensors[2]) > 2.4:
+        if abs(self.sensors[0]) > 0.20944 or abs(self.sensors[2]) > 2.4:
             print("POLE FALLEN or CART POSITION WRONG")
             return True
         else:
@@ -76,7 +74,7 @@ class CartPoleEnvironment(object):
         """ re-initializes the environment, setting the cart back in a random position.
         """
         if self.randomInitialization:
-            angle = random.uniform(-0.05, 0.05)
+            angle = random.uniform(-0.0523599, 0.0523599)
             # pos = random.uniform(-0.05, 0.05)
             # pos = random.uniform(-0.2, 0.2)
             pos = 0.0
