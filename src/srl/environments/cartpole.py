@@ -52,7 +52,7 @@ class CartPoleEnvironment(object):
     def getReward(self):
         episode_ended = self.episodeEnded()
         if episode_ended:
-            return 0.0
+            return -1.0
         else:
             return 1.0
 
