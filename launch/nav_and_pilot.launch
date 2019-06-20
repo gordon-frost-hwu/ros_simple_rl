@@ -5,7 +5,7 @@
     <include file="$(find vehicle_core)/launch/pilot_sim.launch"/>
 
     <!-- Load a robot model should RVIZ be used -->
-    <param name="robot_description" command="cat $(find osl_uwsim_scenario)/sim/robot/nessie.urdf"/>
+    <!--<param name="robot_description" command="cat $(find osl_uwsim_scenario)/sim/robot/nessie.urdf"/>-->
 
     <!-- Node allows any other ROS node to shutdown all nodes in this launch file -->
     <node name="required_node_control"   pkg="ros_simple_rl" type="required_node.py"  output="log" required="True"/>

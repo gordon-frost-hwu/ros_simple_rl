@@ -1,22 +1,16 @@
 #! /usr/bin/python
 # Adaption of the previous LSTD NAC agent to the CACLA actor update methodology
-import roslib; roslib.load_manifest("ros_simple_rl")
-import rospy
+#import roslib; roslib.load_manifest("ros_simple_rl")
 
-from scipy import random
-from copy import deepcopy
 import numpy as np
 
 import sys
 import time
 import os
 
+from copy import deepcopy
 from srl.useful_classes.angle_between_vectors import AngleBetweenVectors
-from srl.useful_classes.rl_traces import Traces
-
-# from srl.basis_functions.simple_basis_functions import PolynomialBasisFunctions as BasisFunctions
 from srl.basis_functions.simple_basis_functions import RBFBasisFunctions as BasisFunctions
-# from srl.basis_functions.simple_basis_functions import TileCodingBasisFunctions as BasisFunctions
 
 from srl.approximators.linear_approximation import LinearApprox
 from srl.approximators.ann_approximator_from_scratch import ANNApproximator
@@ -24,13 +18,10 @@ from srl.useful_classes.rl_traces import Traces, TrueTraces
 
 from srl.environments.cartpole import CartPoleEnvironment
 
-from srl.learning_algorithms.td_lambda_traditional import Traditional_TD_LAMBDA
 from srl.learning_algorithms.true_online_td_lambda import TrueOnlineTDLambda
 from srl.learning_algorithms.stober_td_learning import TDLinear
 from variable_normalizer import DynamicNormalizer
 from moving_differentiator import SlidingWindow
-from rospkg import RosPack
-rospack = RosPack()
 
 class PolynomialBasisFunctions(object):
     def __init__(self, idx=0):
@@ -77,7 +68,7 @@ actor_config = {
 critic_config = {
     "approximator_name": "value-function",
     "initial_value": 0.0,
-    "alpha": 0.01,
+    "alpha": 0.002,
     "random_weights": False,
     "minimise": False,
     "approximator_boundaries": [-200.0, 200.0],
@@ -101,17 +92,17 @@ CONFIG = {
     "log_actions": 100,
     "log_traces": False,
     "spin_rate": 200,
-    "num_runs": 2,
-    "num_episodes": 200000,
-    "max_num_steps": 350,
+    "num_runs": 10,
+    "num_episodes": 2500,
+    "max_num_steps": 2000,
     "policy_type": "ann",
     "actor update rule": "cacla",
     "critic algorithm": "ann_true",
     "sparse reward": False,
-    "gamma": 0.9,   # was 0.1
-    "lambda": 0.8,  # was 0.0
+    "gamma": 0.98,   # was 0.1
+    "lambda": 0.0,  # was 0.0
     "alpha_decay": 0.0, # was 0.00005
-    "exploration_sigma": 0.1,
+    "exploration_sigma": 5.0,
     "exploration_decay": 1.0,
     "min_trace_value": 0.1
 }
@@ -128,12 +119,12 @@ if __name__ == '__main__':
 
     # initialise some global variables/objects
     # global normalisers
-    position_normaliser = DynamicNormalizer([-1.0, 1.0], [-1.0, 1.0])
+    position_normaliser = DynamicNormalizer([-2.4, 2.4], [-1.0, 1.0])
     position_deriv_normaliser = DynamicNormalizer([-3.0, 3.0], [-1.0, 1.0])
     distance_normaliser = DynamicNormalizer([0.0, 25.0], [-1.0, 1.0])
     distance_reward_normaliser = DynamicNormalizer([0.0, 15.0], [0.0, 1.0])
-    angle_normaliser = DynamicNormalizer([-3.14, 3.14], [-1.0, 1.0])
-    angle_deriv_normaliser = DynamicNormalizer([-0.02, 0.02], [-1.0, 1.0])
+    angle_normaliser = DynamicNormalizer([-0.20944, 0.20944], [-1.0, 1.0])
+    angle_deriv_normaliser = DynamicNormalizer([-1.0, 1.0], [-1.0, 1.0])
 
     angle_dt_moving_window = SlidingWindow(5)
 
@@ -194,7 +185,7 @@ if __name__ == '__main__':
 
         # Loop number of episodes
         for episode_number in range(CONFIG["num_episodes"]):
-            global episode_number, results_dir
+            #global episode_number, results_dir
             # initialise state and internal variables
             if episode_number % CONFIG["log_actions"] == 0:
                 f_actions = open("{0}{1}".format(results_dir, "/actions{0}.csv".format(episode_number)), "w", 1)
@@ -217,12 +208,15 @@ if __name__ == '__main__':
                 # --------- STATE AND TRACES ---------
                 # get current state
                 step_start_time = time.time()
-                print("------ STEP {0} -------".format(step_number))
+                #print("------ STEP {0} -------".format(step_number))
                 sensors = cartpole_environment.getSensors()
-                state_t = {"angle": angle_normaliser.scale_value(deepcopy(sensors[0])),
-                           "angle_deriv": angle_deriv_normaliser.scale_value(deepcopy(sensors[1])),
-                           "position": position_normaliser.scale_value(deepcopy(sensors[2])),
-                           "position_deriv": position_deriv_normaliser.scale_value(deepcopy(sensors[3]))}
+                state_t = {"angle": angle_normaliser.scale_value(sensors[0]),
+                           "angle_deriv": angle_deriv_normaliser.scale_value(sensors[1]),
+                           "position": position_normaliser.scale_value(sensors[2]),
+                           "position_deriv": position_deriv_normaliser.scale_value(sensors[3])}
+                #print("Angle deriv: {0}".format(sensors[3]))
+                #print("Angle deriv: {0}".format(state_t["angle_deriv"]))
+
                 # traces.updateTrace(state_t.values(), 1.0)
                 if td_lambda.name == "true online":
                     if td_lambda.stateprime is None:
@@ -231,7 +225,7 @@ if __name__ == '__main__':
                 # if td_lambda.stateprime is None:
                 #     td_lambda.start(state_t.values())
 
-                print("State: {0}".format(state_t))
+                #print("State: {0}".format(state_t))
 
                 # --------- GET ACTION AND PERFORM IT ---------
                 # Compute the deterministic (??? deterministic if its an approximation ???) action
@@ -249,17 +243,17 @@ if __name__ == '__main__':
                 elif policy.name == "synth_policy":
                     action_t_deterministic = policy.computeOutput()
                 else:
-                    print("Give approximator a name attribute!!!")
+                    #print("Give approximator a name attribute!!!")
                     exit(0)
 
                 exploration = np.random.normal(0.0, CONFIG["exploration_sigma"])
-                print("ANN param size {0}".format(policy.num_params))
+                #print("ANN param size {0}".format(policy.num_params))
 
-                action_t = action_t_deterministic + exploration
-                print("Deterministic Action: {0}".format(action_t_deterministic))
-                print("Stochastic Action: {0}".format(action_t))
+                action_t =  np.clip(action_t_deterministic + exploration, -10, 10)
+                #print("Deterministic Action: {0}".format(action_t_deterministic))
+                #print("Stochastic Action: {0}".format(action_t))
                 if prev_det_action is None:
-                    prev_det_action = deepcopy(action_t_deterministic)
+                    prev_det_action = action_t_deterministic
 
                 # Log the deterministic action chosen for each state according to the policy LA
                 # use the deterministic action just so that it is cleaner to look at for debugging
@@ -270,6 +264,7 @@ if __name__ == '__main__':
                         label_logging_format = "#{" + "}\t{".join(
                             [str(state_keys.index(el)) for el in state_keys]) + "}\n"
                         f_actions.write(label_logging_format.format(*state_keys))
+
                     logging_list = state_t.values()
                     logging_list.append(action_t_deterministic)
                     action_logging_format = "{" + "}\t{".join(
@@ -279,27 +274,30 @@ if __name__ == '__main__':
                 # Perform the action
                 cartpole_environment.performAction(action_t)
 
-                print("Sleeping for a bit ...")
-                time.sleep(1.0 / CONFIG["spin_rate"])
+                #print("Sleeping for a bit ...")
+                #time.sleep(1.0 / CONFIG["spin_rate"])
 
                 # --------- GET NEW STATE ---------
                 # observe new state --- which is dependant on whether it is the final goal state or not
 
                 sensors_t_plus_1 = cartpole_environment.getSensors()
-                state_t_plus_1 = {"angle": angle_normaliser.scale_value(deepcopy(sensors_t_plus_1[0])),
-                           "angle_deriv": angle_deriv_normaliser.scale_value(deepcopy(sensors_t_plus_1[1])),
-                           "position": position_normaliser.scale_value(deepcopy(sensors_t_plus_1[2])),
-                           "position_deriv": position_deriv_normaliser.scale_value(deepcopy(sensors_t_plus_1[3]))}
+                state_t_plus_1 = {"angle": angle_normaliser.scale_value(sensors_t_plus_1[0]),
+                           "angle_deriv": angle_deriv_normaliser.scale_value(sensors_t_plus_1[1]),
+                           "position": position_normaliser.scale_value(sensors_t_plus_1[2]),
+                           "position_deriv": position_deriv_normaliser.scale_value(sensors_t_plus_1[3])}
 
-                print("State + 1: {0}".format(state_t_plus_1))
-                print("Cart Position: {0}".format(cartpole_environment.getCartPosition()))
-                print("Pole Angles: {0}".format(cartpole_environment.getPoleAngles()))
+                #print("State + 1: {0}".format(state_t_plus_1))
+                #print("Cart Position: {0}".format(cartpole_environment.getCartPosition()))
+                #print("Pole Angles: {0}".format(cartpole_environment.getPoleAngles()))
 
+                #action_penalty = (action_t_deterministic * action_t_deterministic) / 100.0
+                #reward = cartpole_environment.getReward(action_penalty)
                 reward = cartpole_environment.getReward()
+
                 # if reward > 0.0:
                 #     print("Difference in ACTIONS: {0}".format(action_t_deterministic - prev_det_action))
                 #     reward = reward - (action_t_deterministic - prev_det_action)**2
-                print("REWARD: {0}".format(reward))
+                #print("REWARD: {0}".format(reward))
                 # f_rewards.write("{0}\t{1}\n".format(episode_number, reward))
 
                 # state_t_sub_features = basis_functions.computeFeatures(state_t.values(), goalState=False)
@@ -309,15 +307,15 @@ if __name__ == '__main__':
                 #     state_t_plus_1_sub_features = basis_functions.computeFeatures(state_t_plus_1.values(), goalState=True)
 
                 if td_lambda.name == "true online":
-                    print("True Online")
+                    #print("True Online")
                     state_t_value = td_lambda.getStateValue(state_t)
                     state_t_plus_1_value = td_lambda.getStateValue(state_t_plus_1)
                 elif td_lambda.name == "trad online":
-                    print("Trad Online")
+                    #print("Trad Online")
                     state_t_value = td_lambda.getStateValue(basis_functions.computeFeatures(state_t))
                     state_t_plus_1_value = td_lambda.getStateValue(basis_functions.computeFeatures(state_t_plus_1))
                 elif td_lambda.name == "scratch_ann":
-                    print("ANN")
+                    #print("ANN")
                     state_t_value = td_lambda.computeOutput(sensors)
                     state_t_plus_1_value = td_lambda.computeOutput(sensors_t_plus_1)
                 elif td_lambda.name == "nac":
@@ -373,7 +371,7 @@ if __name__ == '__main__':
                         # td_lambda.setParams(prev_critic_weights + CONFIG["critic_config"]["alpha"] * td_error * critic_gradient)
                     elif CONFIG["critic algorithm"] == "ann_true":
                         # For True TD(lambda)
-                        print("UPDATING ANN CRITC with TRUE TD(lambda)")
+                        #print("UPDATING ANN CRITC with TRUE TD(lambda)")
                         traces.updateTrace(critic_gradient)  # for True TD(lambda)
                         part_1 = td_error * traces.e
                         part_2 = CONFIG["critic_config"]["alpha"] * \
@@ -392,8 +390,8 @@ if __name__ == '__main__':
                                                  len(state_t_plus_1_sub_features))]).transpose()]).transpose()
                     phi_hat = np.array([state_t_sub_features.transpose(),
                                         advantage_approximation_features.transpose()]).transpose()
-                    print("Critic UPdate: phi_squiggle: {0}".format(phi_squiggle.transpose().tolist()))
-                    print("Critic UPdate: phi_hat: {0}".format(phi_hat.transpose().tolist()))
+                    #print("Critic UPdate: phi_squiggle: {0}".format(phi_squiggle.transpose().tolist()))
+                    #print("Critic UPdate: phi_hat: {0}".format(phi_hat.transpose().tolist()))
                     td_lambda.updateTraces(phi_hat)
                     td_lambda.updateA(phi_hat, CONFIG["gamma"] * phi_squiggle)
                     td_lambda.update_b(reward)
@@ -403,17 +401,17 @@ if __name__ == '__main__':
                     # print("critic_gradient: {0}".format(critic_gradient.shape))
                     if "prev_critic_gradient" not in locals():
                         prev_critic_gradient = np.zeros(critic_gradient.shape)
-                    print("DEBUG: prev_critic_gradient: {0}".format(prev_critic_gradient))
-                    print("GRADIENT (CRITIC): {0}".format(critic_gradient))
+                    #print("DEBUG: prev_critic_gradient: {0}".format(prev_critic_gradient))
+                    #print("GRADIENT (CRITIC): {0}".format(critic_gradient))
                     angle_between_gradient_vectors = angle_between_vectors.angle_between(critic_gradient,
                                                                                          prev_critic_gradient)
-                    print("Angle between gradient vectors: {0}".format(angle_between_gradient_vectors))
+                    #print("Angle between gradient vectors: {0}".format(angle_between_gradient_vectors))
                     #f_gradient_vec_diff.write(
                     #"{0}\t{1}\n".format(episode_number, angle_between_gradient_vectors))
 
-                print("State t Value: {0}".format(state_t_value))
-                print("State t+1 Value: {0}".format(state_t_plus_1_value))
-                print("TD ERROR: {0}".format(td_error))
+                #print("State t Value: {0}".format(state_t_value))
+                #print("State t+1 Value: {0}".format(state_t_plus_1_value))
+                #print("TD ERROR: {0}".format(td_error))
 
                 params = policy.getParams()
 
@@ -430,24 +428,24 @@ if __name__ == '__main__':
                                                CONFIG["test_policy"] )
                 if td_lambda.name == "nac" and vali_actor_update_condition:
                     # if state_t_plus_1_value > 0.0:
-                    print("angle_between_gradient_vectors: {0}".format(angle_between_gradient_vectors))
+                    #print("angle_between_gradient_vectors: {0}".format(angle_between_gradient_vectors))
                     if abs(angle_between_gradient_vectors) < 0.01:
-                        print("Angle Between Gradients is small --- update the ACTOR")
+                        #print("Angle Between Gradients is small --- update the ACTOR")
                         old_action = policy.computeOutput(basis_functions.computeFeatures(state_t, approx="policy"))
                         policy.setParams(params + actor_config["alpha"] * (critic_gradient * exploration))
                         # policy.setParams(params - actor_config["alpha"] * critic_gradient)
                         new_action = policy.computeOutput(basis_functions.computeFeatures(state_t, approx="policy"))
-                        print("Old Action: {0}".format(old_action))
-                        print("New Action: {0}".format(new_action))
+                        #print("Old Action: {0}".format(old_action))
+                        #print("New Action: {0}".format(new_action))
                         td_lambda.decayStatistics(decay=0.9)
-                    else:
-                        print("Angle between Gradients too Large, NOT UPDATING POLICY")
+                    #else:
+                        #print("Angle between Gradients too Large, NOT UPDATING POLICY")
 
                 elif ACTOR_UPDATE_CONDITION and vali_actor_update_condition and CONFIG[
                     "policy_type"] != "synth":  # and episode_number > 0:
                     # # policy.plotFeatures = True
 
-                    print("UPDATING THE POLICY WEIGHTS!!!! :O")
+                    #print("UPDATING THE POLICY WEIGHTS!!!! :O")
                     # X, T = td_lambda.traces.getTraces()
                     # for x, trace in zip(X, T):
                     #     state_for_trace = basis_functions.computeFeatures(x, goalState=False) * trace
@@ -467,9 +465,9 @@ if __name__ == '__main__':
                     elif policy.name == "rbfn":
                         old_action = policy.computeOutput(state_t.values())
                     else:
-                        print("Give approximator a name attribute!!!")
+                        #print("Give approximator a name attribute!!!")
                         exit(0)
-                    print("Action BEFORE actor update: {0}".format(old_action))
+                    #print("Action BEFORE actor update: {0}".format(old_action))
 
                     if policy.name == "scratch_ann":
                         policy_gradient = policy.calculateGradient()
@@ -481,7 +479,7 @@ if __name__ == '__main__':
                     elif policy.name == "rbfn":
                         policy_gradient = policy.calculateGradient(state_t.values())
                     else:
-                        print("Give approximator a name attribute!!!")
+                        #print("Give approximator a name attribute!!!")
                         exit(0)
 
                     # print("GRADIENT (POLICY): {0}".format(policy_gradient))
@@ -495,9 +493,9 @@ if __name__ == '__main__':
                             # policy.setParams(params + actor_config["alpha"] * (policy_gradient * exploration))
                             X, T = policy_traces.getTraces()
                             p = policy.getParams()
-                            print("Number of traces: {0}".format(len(T)))
+                            #print("Number of traces: {0}".format(len(T)))
                             for x, trace in zip(X, T):
-                                # print("updating critic using gradient vector: {0}\t{1}".format(x, trace))
+                                # #print("updating critic using gradient vector: {0}\t{1}".format(x, trace))
                                 p += actor_config["alpha"] * (x * trace) * exploration
                             policy.setParams(p)
                         else:
@@ -505,12 +503,12 @@ if __name__ == '__main__':
                     else:
                         if CONFIG["actor update rule"] == "td lambda":
                             # TD(Lambda) actor update
-                            print("TD LAMBDA Actor udpate")
+                            #print("TD LAMBDA Actor udpate")
                             policy.setParams(
                                 params + actor_config["alpha"] * (policy_gradient * td_error * td_lambda.getTraces()))
                         elif CONFIG["actor update rule"] == "cacla":
                             # CACLA(Lambda) actor update
-                            print("CACLA Actor update")
+                            #print("CACLA Actor update")
                             policy.setParams(params + actor_config["alpha"] * (
                                         policy_gradient * exploration * td_lambda.getTraces()))
 
@@ -521,26 +519,27 @@ if __name__ == '__main__':
                     elif policy.name == "rbfn":
                         new_action = policy.computeOutput(state_t.values())
                     else:
-                        print("Give approximator a name attribute!!!")
+                        #print("Give approximator a name attribute!!!")
                         exit(0)
 
-                    print("Action AFTER actor update: {0}".format(new_action))
+                    #print("Action AFTER actor update: {0}".format(new_action))
 
                 # print("Number of Traces: {0}".format(len(td_lambda.traces._values)))
                 # np.save("{0}/policy_params{1}".format(results_dir, step_number), policy.getParams())
 
                 if td_lambda.name == "nac" or td_lambda.name == "scratch_ann":
                     prev_critic_gradient = deepcopy(critic_gradient)
-                print("Policy ALPHA: {0}".format(policy.alpha))
-                print("GAMMA: {0}".format(CONFIG["gamma"]))
-                print("LAMBDA: {0}".format(CONFIG["lambda"]))
+                #print("Policy ALPHA: {0}".format(policy.alpha))
+                #print("GAMMA: {0}".format(CONFIG["gamma"]))
+                #print("LAMBDA: {0}".format(CONFIG["lambda"]))
 
                 step_time = time.time() - step_start_time
+                #time.sleep(0.002)
                 # accumulate total reward
                 cum_reward += reward
                 cum_step_time += step_time
 
-                prev_det_action = deepcopy(action_t_deterministic)
+                prev_det_action = action_t_deterministic
 
                 # Check for goal condition
                 if terminalState:
@@ -548,6 +547,7 @@ if __name__ == '__main__':
                     # if td_lambda.name == "nac":
                     #     td_lambda.decayStatistics(decay=0.0)
                     # print("ZEROES LSTD STATISTICS")
+                    print("Number of steps: {0}".format(cum_reward))
                     num_episodes_failed += 1
                     break
 

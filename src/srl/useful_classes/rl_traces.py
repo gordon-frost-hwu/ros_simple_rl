@@ -1,5 +1,3 @@
-from Queue import Queue
-from copy import deepcopy
 from numpy import array, zeros, dot
 
 class Traces(object):
@@ -12,7 +10,7 @@ class Traces(object):
 
     def getTraces(self):
         """ Usage: first call: X, Y = traces.getTraces; then iterate usin:g for x, y in zip(X, Y):"""
-        tmp_keys = deepcopy(self._keys); tmp_values = deepcopy(self._values)
+        tmp_keys = list(self._keys); tmp_values = list(self._values)
         tmp_keys.reverse()
         tmp_values.reverse()
         return tmp_keys, tmp_values
@@ -23,7 +21,7 @@ class Traces(object):
         self._values = self._values
         if any([item < self._min_trace_value for item in self._values]):
             while min(self._values) < self._min_trace_value:
-                print("removing old trace (below threshold) ....")
+                #print("removing old trace (below threshold) ....")
                 self._keys.remove(self._keys[self._values.index(min(self._values))])
                 self._values.remove(min(self._values))
 

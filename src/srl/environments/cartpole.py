@@ -51,6 +51,7 @@ class CartPoleEnvironment(object):
 
     def getReward(self):
         episode_ended = self.episodeEnded()
+        #print("penalty: {0}".format(penalty))
         if episode_ended:
             return -1.0
         else:
@@ -58,7 +59,7 @@ class CartPoleEnvironment(object):
 
     def episodeEnded(self):
         if abs(self.sensors[0]) > 0.20944 or abs(self.sensors[2]) > 2.4:
-            print("POLE FALLEN or CART POSITION WRONG")
+            #print("POLE FALLEN or CART POSITION WRONG")
             return True
         else:
             return False
