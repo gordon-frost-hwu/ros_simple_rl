@@ -51,7 +51,7 @@ class RealTimePlotter(object):
 
         self.axes.plot(time, value, ".")
 
-    def getArg(self, key):
+    def get_arg(self, key):
         if key in self.args:
             key_idx = self.args.index(key)
             value = self.args[key_idx + 1]
@@ -63,7 +63,7 @@ class RealTimePlotter(object):
             return
         for arg in self.args:
             if arg[0] == "-" and arg[1].isalpha():
-                key, val = self.getArg(arg)
+                key, val = self.get_arg(arg)
                 if key is not None:
                     self.active_args[key] = val
         print("Enabled arguments: {0}".format(self.active_args))
@@ -79,13 +79,59 @@ class RealTimePlotter(object):
                     csv_file.write(('\n'))
 
 
+class ShowResults(object):
+    def __init__(self, args):
+        self.args = args
+        self.active_args = {}
+        self.parse_args()
+        print(self.active_args)
+        self.fig, self.axes = plt.subplots()
+
+        self.get_data()
+
+        #rospy.on_shutdown(self.on_rospy_shutdown)
+        ymin = -np.pi
+        ymax = np.pi
+        if "ymin" in self.active_args:
+            ymin = float(self.active_args["ymin"])
+        if "ymax" in self.active_args:
+            ymax = float(self.active_args["ymax"])
+            print(ymin)
+            print(ymax)
+        self.axes.set_ylim([ymin, ymax])
+        plt.show()
+
+    def get_data(self):
+        filepath = self.args[self.args.index("-r") + 1]
+        values = np.loadtxt(filepath, comments='#', delimiter='\t')
+        self.axes.plot(values[:, 0], values[:, 1])
+
+    def get_arg(self, key):
+        if key in self.args:
+            key_idx = self.args.index(key)
+            value = self.args[key_idx + 1]
+            return key.strip("-"), value
+        return None, None
+
+    def parse_args(self):
+        if len(self.args) == 0:
+            return
+        for arg in self.args:
+            if arg[0] == "-" and arg[1].isalpha():
+                key, val = self.get_arg(arg)
+                if key is not None:
+                    self.active_args[key] = val
+        print("Enabled arguments: {0}".format(self.active_args))
+
 if __name__ == '__main__':
     rospy.init_node("plotter")
 
     args = sys.argv
     print("Args: {0}".format(args))
-    #args.pop(0)
-    #plt.ion()
-    plotter = RealTimePlotter(args)
+
+    if "-r" in args:
+        results = ShowResults(args)
+    else:
+        plotter = RealTimePlotter(args)
 
     rospy.spin()
