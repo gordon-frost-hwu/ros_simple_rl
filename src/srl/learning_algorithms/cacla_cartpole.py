@@ -120,11 +120,11 @@ if __name__ == '__main__':
     # initialise some global variables/objects
     # global normalisers
     position_normaliser = DynamicNormalizer([-2.4, 2.4], [-1.0, 1.0])
-    position_deriv_normaliser = DynamicNormalizer([-3.0, 3.0], [-1.0, 1.0])
+    position_deriv_normaliser = DynamicNormalizer([-1.5, 1.5], [-1.0, 1.0])
     distance_normaliser = DynamicNormalizer([0.0, 25.0], [-1.0, 1.0])
     distance_reward_normaliser = DynamicNormalizer([0.0, 15.0], [0.0, 1.0])
     angle_normaliser = DynamicNormalizer([-0.20944, 0.20944], [-1.0, 1.0])
-    angle_deriv_normaliser = DynamicNormalizer([-1.0, 1.0], [-1.0, 1.0])
+    angle_deriv_normaliser = DynamicNormalizer([-1.5, 1.5], [-1.0, 1.0])
 
     angle_dt_moving_window = SlidingWindow(5)
 
