@@ -7,9 +7,6 @@ from math import exp
 from copy import deepcopy
 from variable_normalizer import DynamicNormalizer
 
-
-
-
 scale = DynamicNormalizer(input_range=[0.0, 1.0], output_range=[-1.0, 1.0])
 # Sigmoid activation function for hidden layer nuerons
 def sigmoid(X):
@@ -33,10 +30,6 @@ class ANNApproximator(object):
         self.num_params = None
         self.params_minus_one = self.getParams()
         self.params_plus_one = None
-        self.loadpickle = deepcopy
-
-    def deepcopy(self, a):
-        return self.loadpickle(a)
 
     def build_model(self, nn_hdim, hlayer_activation_func):
 
@@ -111,7 +104,7 @@ class ANNApproximator(object):
         """
         self.params_minus_one = self.getParams()
         self.params_plus_one = flat_param_vector
-        param_vector_copies = [self.deepcopy(x) for x in [self.W1, self.b1, self.W2, self.b2]]
+        param_vector_copies = [deepcopy(x) for x in [self.W1, self.b1, self.W2, self.b2]]
         flattened_W1_shape = np.prod(param_vector_copies[0].shape)
         flattened_b1_shape = np.prod(param_vector_copies[1].shape)
         flattened_W2_shape = np.prod(param_vector_copies[2].shape)
@@ -130,14 +123,14 @@ class ANNApproximator(object):
         assert self.last_input is not None, "computeOutput method has not been called yet---no point calculating gradient then"
         orig_parameter_vector = self.getParams()
         if state is None:
-            state_for_gradient_calc = self.deepcopy(self.last_input)
+            state_for_gradient_calc = deepcopy(self.last_input)
         else:
             state_for_gradient_calc = state
 
         orig_output = self.computeOutput(state_for_gradient_calc)
         gradient = []
         for idx in range(len(orig_parameter_vector)):
-            new_param_vector = self.deepcopy(orig_parameter_vector)
+            new_param_vector = deepcopy(orig_parameter_vector)
             new_param_vector[idx] += self.h
 
             self.setParams(new_param_vector)
