@@ -77,8 +77,8 @@ class CartPoleEnvironment(object):
         if self.randomInitialization:
             angle = random.uniform(-0.0523599, 0.0523599)
             # pos = random.uniform(-0.05, 0.05)
-            # pos = random.uniform(-0.2, 0.2)
-            pos = 0.0
+            pos = random.uniform(-0.5, 0.5)
+            #pos = 0.0
         else:
             angle = -0.05
             pos = 0.1
