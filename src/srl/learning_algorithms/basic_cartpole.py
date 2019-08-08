@@ -28,7 +28,7 @@ actor_config = {
     "minimise": False,
     "approximator_boundaries": [-200.0, 200.0],
     "num_input_dims": 4,
-    "num_hidden_units": 12
+    "num_hidden_units": 20
     # "basis_functions": Fourier(FourierDomain(), order=5)
     # "basis_functions": TileCodingBasis(2, [[-1.2, 0.6], [-0.07, 0.07]], 64, 128)
     # "basis_functions": BasisFunctions()
@@ -44,24 +44,20 @@ critic_config = {
     "num_input_dims": 4,
     "rbf_basis_resolution": 20,
     "rbf_basis_scalar": 15.0,
-    "number_of_dims_in_state": 2
-    # "basis_functions": Fourier(FourierDomain(), order=5)
-    # "basis_functions": TileCodingBasis(2, [[-1.2, 0.6], [-0.07, 0.07]], 64, 128)
-    # "basis_functions": BasisFunctions()
 }
 CONFIG = {
-    "log_actions": 100,
+    "log_actions": 10,
     "log_traces": False,
     "spin_rate": 200,
     "num_runs": 50,
-    "num_episodes": 2500,
+    "num_episodes": 2000,
     "max_num_steps": 2000,
     "policy_type": "ann",
     "actor update rule": "cacla",
-    "critic algorithm": "ann_true",
+    "critic algorithm": "ann_trad",
     "sparse reward": False,
     "gamma": 0.98,   # was 0.1
-    "lambda": 0.9,  # was 0.0
+    "lambda": 0.2,  # was 0.0
     "alpha_decay": 0.0, # was 0.00005
     "exploration_sigma": 5.0,
     "exploration_decay": 1.0,
@@ -82,6 +78,7 @@ class CartPoleSimulation(object):
         self.angle_deriv_normaliser = DynamicNormalizer([-1.5, 1.5], [-1.0, 1.0])
 
         self.angle_dt_moving_window = SlidingWindow(5)
+        self.last_150_episode_returns = SlidingWindow(150)
 
     def update_critic(self, reward):
         state_t_value = self.approx_critic.computeOutput(self.state_t.values())
@@ -99,7 +96,7 @@ class CartPoleSimulation(object):
         p = self.approx_critic.getParams()
         if CONFIG["critic algorithm"] == "ann_trad":
             self.traces_critic.updateTrace(critic_gradient, 1.0)  # for standard TD(lambda)
-            X, T = self.traces.getTraces()
+            X, T = self.traces_critic.getTraces()
             for x, trace in zip(X, T):
                 # print("updating critic using gradient vector: {0}\t{1}".format(x, trace))
                 p += critic_config["alpha"] * td_error * (x * trace)
@@ -168,8 +165,11 @@ class CartPoleSimulation(object):
                     # print("updating critic using gradient vector: {0}\t{1}".format(x, trace))
                     p += actor_config["alpha"] * (x * trace) * exploration
                 self.approx_policy.setParams(p)
+                self.approx_policy_greedy.setParams(p)
             else:
                 self.approx_policy.setParams(params + actor_config["alpha"] * (policy_gradient * td_error))
+                self.approx_policy_greedy.setParams(params + actor_config["alpha"] * (policy_gradient * td_error))
+
 
     def run(self):
         # Loop number of runs
@@ -193,6 +193,7 @@ class CartPoleSimulation(object):
             self.approx_critic = ANNApproximator(actor_config["num_input_dims"],
                                             actor_config["num_hidden_units"], hlayer_activation_func="tanh")
             self.approx_policy = ANNApproximator(actor_config["num_input_dims"], actor_config["num_hidden_units"], hlayer_activation_func="tanh")
+            self.approx_policy_greedy = ANNApproximator(actor_config["num_input_dims"], actor_config["num_hidden_units"], hlayer_activation_func="tanh")
             prev_critic_gradient = np.zeros(self.approx_critic.getParams().shape)
 
             # Set up trace objects
@@ -224,7 +225,7 @@ class CartPoleSimulation(object):
                     # Update the state for timestep t
                     self.update_state_t()
                     
-                    action_t_greedy = self.approx_policy.computeOutput(self.state_t_greedy.values())
+                    action_t_greedy = self.approx_policy_greedy.computeOutput(self.state_t_greedy.values())
                     action_t_deterministic = self.approx_policy.computeOutput(self.state_t.values())
                     exploration = np.random.normal(0.0, CONFIG["exploration_sigma"])
                     action_t =  np.clip(action_t_deterministic + exploration, -10, 10)
@@ -245,7 +246,6 @@ class CartPoleSimulation(object):
 
                         logging_list = self.state_t.values()
                         logging_list.append(action_t_deterministic)
-
                         action_logging_format = "{" + "}\t{".join(
                             [str(logging_list.index(el)) for el in logging_list]) + "}\n"
                         f_actions.write(action_logging_format.format(*logging_list))
@@ -289,8 +289,12 @@ class CartPoleSimulation(object):
                 # episode either ended early due to failure or completed max number of steps
                 print("Episode ended - Learning {0} {1}".format(episode_number, reward_cum))
                 print("Episode ended - Greedy {0} {1}".format(episode_number, reward_cum_greedy))
+                last_150_avg = sum(self.last_150_episode_returns.getWindow(reward_cum_greedy)) / 150.0
+
                 f_returns.write("{0}\t{1}\n".format(episode_number, reward_cum))
                 f_returns_greedy.write("{0}\t{1}\n".format(episode_number, reward_cum_greedy))
+                if last_150_avg > 1995:
+                    break
 
 
 if __name__ == '__main__':
