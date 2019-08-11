@@ -1,10 +1,7 @@
 #! /usr/bin/python
 import pdb
 import numpy as np
-import matplotlib
 import matplotlib.pyplot as plt
-
-print("Using backend: {0}".format(plt.get_backend()))
 import math
 import sys
 from copy import deepcopy
@@ -13,7 +10,9 @@ from collections import OrderedDict
 from itertools import cycle
 import re
 from matplotlib import rc
-rc('text', usetex=True)
+from random import randint
+
+rc('text', usetex=False)
 
 line_cycle = cycle(["-",":","--","-.",])
 marker_cycle = cycle(["p","v","o","D","s",])
@@ -94,6 +93,15 @@ if "-i" in args:
     args.remove(args[args.index("-i")])
 else:
     INDEX_TO_PLOT = -1
+
+if "-v" in args:
+    DRAW_VERT_LINE = True
+    INDEX_OF_VERT_LINE = int(args[args.index("-v") + 1])
+    args.remove(args[args.index("-v") + 1])
+    args.remove(args[args.index("-v")])
+else:
+    DRAW_VERT_LINE = False
+    INDEX_OF_VERT_LINE = -1
 
 if "-d" in args:
     DELIMITER = args[args.index("-d") + 1]
@@ -218,12 +226,12 @@ if not RAW_PLOT:
     print("args: {0}".format(args))
     if len(args) == 0:
         args.append("plot_interactions.py")
-    fig, ax = plt.subplots()
-
-
-    plt.plot([0 for x in range(5)], "w", alpha=0.0)
+    # plt.plot([0 for x in range(5)], "w", alpha=0.0)
     structured_data = consolidateData([sorted_paths[str(_idx), None] for _idx in idxs])
     print("DEBUG: consolidatedData: {0}".format(structured_data.shape))
+    print("First 10 lines of raw consolidated data:")
+    print("{0}".format(structured_data[1:10, :]))
+    fig, ax = plt.subplots()
 
     # ------
     # Step through the operations applying them sequentially.
@@ -234,7 +242,6 @@ if not RAW_PLOT:
         if operation == "-m":
             # average runs from the multiple results file paths
             print("Plotting Average")
-            print(mean_structured_data)
             ax.plot(mean_structured_data)
             print("DEBUG: mean_structured_data.shape: {0}".format(mean_structured_data.shape))
             print("DEBUG: SAMPLE_AT_STEP_NUMBER: {0}".format(SAMPLE_AT_STEP_NUMBER))
@@ -255,6 +262,7 @@ if not RAW_PLOT:
                                                                                                  mean_of_sample))
 
         if operation == "--mse":
+            print("Plotting MSE")
             structured_data = structured_data**2
 
         if operation == "--integrate":
@@ -267,19 +275,24 @@ if not RAW_PLOT:
             print("STRUCTURED_DATA: {0}".format(structured_data.shape))
             print("MEAN_STRUCTURED_DATA: {0}".format(mean_structured_data.shape))
             cont_variable = structured_data[:,:]    # should be size: [Num_samples x Num_files]
+            print("Values at episode 300: {0}".format(cont_variable[300, :]))
+
             cont_variable_mean = np.array([mean_structured_data.tolist(),]*min(structured_data.shape)).transpose() # should be size: [Num_samples x Num_files]
-            print("cont_variable: {0}".format(cont_variable.shape))
-            print("cont_variable_mean: {0}".format(cont_variable_mean.shape))
+            #print("cont_variable: {0}".format(cont_variable.shape))
+            #print("cont_variable_mean: {0}".format(cont_variable_mean.shape))
+            print("Mean at episode 300: {0}".format(cont_variable_mean[300]))
+
             variance =  cont_variable - cont_variable_mean    # should be size: [Num_steps x Num_files]
-            print("SUBTRACT: {0}".format(variance.shape))
+            #print("SUBTRACT: {0}".format(variance.shape))
             variance = variance**2
-            print("SQUARE: {0}".format(variance[0:4,:]))
-            variance = variance.sum(axis=1) / (num_result_paths - 1) # / n-1 for Bessel's correction
-            print("STD STATS: {0}".format(variance.shape))
-            print("VARIANCE: {0}".format(variance[0:4]))
+            #print("SQUARE: {0}".format(variance[0:4,:]))
+            variance = variance.sum(axis=1) / (num_result_paths) # / n-1 for Bessel's correction
+            #print("STD STATS: {0}".format(variance.shape))
+            #print("VARIANCE: {0}".format(variance[0:4]))
 
             try:
                 std_deviation = np.sqrt(variance)
+                print("Std Dev at episode 300: {0}".format(std_deviation[300]))
             except:
                 print("Runtime error in STD Deviation calculation")
                 print(variance)
@@ -320,7 +333,7 @@ if not RAW_PLOT:
             from utilities.moving_differentiator import SlidingWindow
             WINDOW_SIZE = 10
             sliding_window = SlidingWindow(window_size=WINDOW_SIZE)
-            converged_indexes =[]
+            converged_indexes = []
             for index, sample in enumerate(average_diff):
                 window = sliding_window.getWindow(sample)
                 print("sample: {0}".format(window))
@@ -332,26 +345,33 @@ if not RAW_PLOT:
                     converged_indexes.append(index)
             try:
                 print("Converged indexes: {0}".format(converged_indexes[0:5]))
-            except:
+            except IndexError:
                 pass
-    
+
+    plt.draw()
+
+    # Below commented as the plt.axes() is always zero on new machines
     # if len(plt.axes().lines) == 0:
+    #
     #     print("No OPERATORS given so plotting the plain files")
     #     plotted_objects = []
     #     # no mean or mse or integral desired to plot so just plot the raw data
-    #     from random import randint
     #     _idx = 0
-    #     for column_idx in range(structured_data.shape[1]):
-    #         if not NOMARKER:
-    #             line, = ax.plot(structured_data[:, column_idx], marker=marker_cycle.next(), markevery=randint(30, 100), markersize=10)
-    #         else:
-    #             line, = ax.plot(np.linspace(-1.0, 1.0, 100), structured_data[:, column_idx])
-    #         plotted_objects.append(line)
-    #         if "-s" in args:
-    #             print("File path plotted: {0}".format(sorted_paths[str(idxs[_idx]), None]))
-    #             plt.draw()
-    #             unused_variabResle = raw_input("press any key to continue ... ")
-    #             _idx += 1
+    #     print(structured_data.shape)
+    #
+    #     ax.plot(structured_data[:, INDEX_TO_PLOT])
+
+    # for column_idx in range(structured_data.shape[1]):
+    #     if not NOMARKER:
+    #         line, = ax.plot(structured_data[:, column_idx], marker=marker_cycle.next(), markevery=randint(30, 100), markersize=10)
+    #     else:
+    #         line, = ax.plot(np.linspace(-1.0, 1.0, 100), structured_data[:, column_idx])
+    #     plotted_objects.append(line)
+    #     if "-s" in args:
+    #         print("File path plotted: {0}".format(sorted_paths[str(idxs[_idx]), None]))
+    #         plt.draw()
+    #         unused_variabResle = raw_input("press any key to continue ... ")
+    #         _idx += 1
 else:
     # Plot the raw file data
     print("raw args: {0}".format(args))
@@ -395,15 +415,18 @@ else:
     for file in paths:
         data = np.loadtxt(file, delimiter=DELIMITER, comments="#")
         try:
-            ax.plot(data[:,INDEX_TO_PLOT])
+            ax.plot(data[:, INDEX_TO_PLOT])
         except IndexError:
             print("WARNING WARNING WARNING WARNING ---- INDEX ERROR, PLOTTING -1 COLUMN INSTEAD!!!!")
-            ax.plot(data[:,-1])
+            ax.plot(data[:, -1])
 
         if "-s" in args:
             print("plotting: {0}".format(file))
             plt.draw()
             unused_variable = raw_input("press any key to continue ... ")
+
+if DRAW_VERT_LINE:
+    plt.axvline(INDEX_OF_VERT_LINE, color='r', linestyle='--')
 
 if LEGEND_GIVEN:
     # plt.legend() options: ncol, nrow, loc, bbox_to_anchor
@@ -418,7 +441,6 @@ if AXIS_LABELS:
 if Y_LIM == True:
     plt.ylim([y_lim_lower, y_lim_upper])
     plt.draw()
-
 unused_variable = raw_input("press any key to continue ... ")
 exit(0)
 
