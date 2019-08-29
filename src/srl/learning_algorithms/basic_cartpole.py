@@ -23,7 +23,7 @@ from moving_differentiator import SlidingWindow
 actor_config = {
     "approximator_name": "policy",
     "initial_value": 0.0,
-    "alpha": 0.001,
+    "alpha": 0.002,
     "random_weights": False,
     "minimise": False,
     "approximator_boundaries": [-200.0, 200.0],
@@ -37,7 +37,7 @@ actor_config = {
 critic_config = {
     "approximator_name": "value-function",
     "initial_value": 0.0,
-    "alpha": 0.002,
+    "alpha": 0.003,
     "random_weights": False,
     "minimise": False,
     "approximator_boundaries": [-200.0, 200.0],
@@ -54,7 +54,7 @@ CONFIG = {
     "max_num_steps": 2000,
     "policy_type": "ann",
     "actor update rule": "cacla",
-    "critic algorithm": "ann_trad",
+    "critic algorithm": "ann_true",
     "sparse reward": False,
     "gamma": 0.98,   # was 0.1
     "lambda": 0.2,  # was 0.0
@@ -175,7 +175,7 @@ class CartPoleSimulation(object):
         # Loop number of runs
         for run in range(CONFIG["num_runs"]):
             # Create logging directory and files
-            results_dir = "/tmp/{0}{1}".format(self.results_dir_name, run)
+            results_dir = "/home/gordon/data/tmp/{0}{1}".format(self.results_dir_name, run)
             if not os.path.exists(results_dir):
                 os.makedirs(results_dir)
             filename = os.path.basename(sys.argv[0])

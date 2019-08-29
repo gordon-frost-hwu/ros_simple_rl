@@ -40,3 +40,13 @@ class ROSBehaviourInterface(Nav):
 
     def performAction(self, param_name, param_value, reverse_flag=False, offset=1.0):
         self.yaw_ros_action(param_name, param_value, reverse_flag, offset)
+    
+    def reset(self):
+        self.disable_behaviours(True)
+        self.pilot([0, 0, 0, 0, 0, 1.57])
+        rospy.sleep(2)
+        self.disable_behaviours(False)
+    
+    def getReward(self, state):
+        reward = -10.0 + (10.0 * (1.0 - abs(state["angle"])))
+        return reward
