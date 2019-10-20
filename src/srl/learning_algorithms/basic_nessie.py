@@ -36,13 +36,14 @@ actor_config = {
 critic_config = {
     "approximator_name": "value-function",
     "initial_value": 0.0,
-    "alpha": 0.01,
+    "alpha": 0.003,
     "random_weights": False,
     "num_input_dims": 1,
     "rbf_basis_resolution": 20,
     "rbf_basis_scalar": 15.0,
 }
 CONFIG = {
+    "test_policy": False,
     "log_actions": 5,
     "log_traces": False,
     "spin_rate": 10,
@@ -55,10 +56,10 @@ CONFIG = {
     "critic algorithm": "ann_true",
     "sparse reward": False,
     "gamma": 0.98,   # was 0.1
-    "lambda": 0.2,  # was 0.0
+    "lambda": 0.8,  # was 0.0
     "alpha_decay": 0.0, # was 0.00005
     "exploration_sigma": 0.2,
-    "exploration_decay": 1.0,
+    "exploration_decay": 0.96,
     "min_trace_value": 0.1
 }
 
@@ -174,7 +175,13 @@ class NessieRlSimulation(object):
             self.approx_critic = ANNApproximator(actor_config["num_input_dims"],
                                             actor_config["num_hidden_units"], hlayer_activation_func="tanh")
             self.approx_policy = ANNApproximator(actor_config["num_input_dims"], actor_config["num_hidden_units"], hlayer_activation_func="tanh")
+            policy_init = "/home/gordon/data/tmp/policy_params0.npy"
+            self.approx_policy.setParams(list(np.load(policy_init)))
             
+            if CONFIG["test_policy"] is True:
+                if not os.path.exists("/tmp/{0}".format(results_to_validate)):
+                    continue
+                self.approx_policy.setParams()
             prev_critic_gradient = np.zeros(self.approx_critic.getParams().shape)
 
             # Set up trace objects
@@ -183,6 +190,8 @@ class NessieRlSimulation(object):
             elif CONFIG["critic algorithm"] == "ann_true":
                 self.traces_critic = TrueTraces(critic_config["alpha"], CONFIG["gamma"], CONFIG["lambda"])
             self.traces_policy = Traces(CONFIG["lambda"], CONFIG["min_trace_value"])
+
+            exploration_sigma = CONFIG["exploration_sigma"]
 
             for episode_number in range(CONFIG["num_episodes"]):
                 reward_cum = 0.0
@@ -200,6 +209,9 @@ class NessieRlSimulation(object):
 
                 episode_ended = False
                 episode_ended_learning = False
+
+                if episode_number > 5 and exploration_sigma > 0.1:
+                    exploration_sigma *= CONFIG["exploration_decay"]
 
                 for step_number in range(CONFIG["max_num_steps"]):
                     # Update the state for timestep t
@@ -256,6 +268,9 @@ class NessieRlSimulation(object):
                 print("Episode ended - Learning {0} {1}".format(episode_number, reward_cum))
 
                 f_returns.write("{0}\t{1}\n".format(episode_number, reward_cum))
+
+                np.save("{0}/policy_params{1}".format(results_dir, episode_number), self.approx_policy.getParams())
+
 
 
 if __name__ == '__main__':
