@@ -36,7 +36,7 @@ actor_config = {
 critic_config = {
     "approximator_name": "value-function",
     "initial_value": 0.0,
-    "alpha": 0.003,
+    "alpha": 0.01,
     "random_weights": False,
     "num_input_dims": 1,
     "rbf_basis_resolution": 20,
@@ -44,7 +44,7 @@ critic_config = {
 }
 CONFIG = {
     "test_policy": False,
-    "log_actions": 5,
+    "log_actions": 1,
     "log_traces": False,
     "spin_rate": 10,
     "num_runs": 50,
@@ -58,8 +58,8 @@ CONFIG = {
     "gamma": 0.98,   # was 0.1
     "lambda": 0.8,  # was 0.0
     "alpha_decay": 0.0, # was 0.00005
-    "exploration_sigma": 0.2,
-    "exploration_decay": 0.96,
+    "exploration_sigma": 0.1,
+    "exploration_decay": 1.0,
     "min_trace_value": 0.1
 }
 
