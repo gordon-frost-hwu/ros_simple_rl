@@ -14,6 +14,7 @@ from srl.basis_functions.simple_basis_functions import RBFBasisFunctions as Basi
 from srl.approximators.linear_approximation import LinearApprox
 from srl.approximators.ann_approximator_from_scratch import ANNApproximator
 from srl.useful_classes.rl_traces import Traces, TrueTraces
+from utilities.orstein_exploration import OUNoise
 
 from srl.environments.ros_behaviour_interface import ROSBehaviourInterface
 from srl.useful_classes.ros_environment_goals import EnvironmentInfo
@@ -27,9 +28,9 @@ from moving_differentiator import SlidingWindow
 actor_config = {
     "approximator_name": "policy",
     "initial_value": 0.0,
-    "alpha": 0.001,
+    "alpha": 0.0005,
     "random_weights": False,
-    "num_input_dims": 1,
+    "num_input_dims": 2,
     "num_hidden_units": 12
 }
 
@@ -38,9 +39,7 @@ critic_config = {
     "initial_value": 0.0,
     "alpha": 0.01,
     "random_weights": False,
-    "num_input_dims": 1,
-    "rbf_basis_resolution": 20,
-    "rbf_basis_scalar": 15.0,
+    "num_input_dims": 2
 }
 CONFIG = {
     "test_policy": False,
@@ -56,7 +55,7 @@ CONFIG = {
     "critic algorithm": "ann_true",
     "sparse reward": False,
     "gamma": 0.98,   # was 0.1
-    "lambda": 0.8,  # was 0.0
+    "lambda": 0.6,  # was 0.0
     "alpha_decay": 0.0, # was 0.00005
     "exploration_sigma": 0.1,
     "exploration_decay": 1.0,
@@ -74,7 +73,7 @@ class NessieRlSimulation(object):
         self.position_normaliser = DynamicNormalizer([-2.4, 2.4], [-1.0, 1.0])
         self.position_deriv_normaliser = DynamicNormalizer([-1.75, 1.75], [-1.0, 1.0])
         self.angle_normaliser = DynamicNormalizer([-3.14, 3.14], [-1.0, 1.0])
-        self.angle_deriv_normaliser = DynamicNormalizer([-1.5, 1.5], [-1.0, 1.0])
+        self.angle_deriv_normaliser = DynamicNormalizer([-0.01, 0.01], [-1.0, 1.0])
 
         self.angle_dt_moving_window = SlidingWindow(5)
         self.last_150_episode_returns = SlidingWindow(150)
@@ -83,6 +82,9 @@ class NessieRlSimulation(object):
         self.env = ROSBehaviourInterface()
         self.environment_info = EnvironmentInfo()
 
+        self.ounoise = OUNoise()
+
+        self.prev_action = 0.0
 
     def update_critic(self, reward):
         state_t_value = self.approx_critic.computeOutput(self.state_t.values())
@@ -119,14 +121,37 @@ class NessieRlSimulation(object):
 
     def update_state_t(self):
         raw_angle = deepcopy(self.environment_info.raw_angle_to_goal)
+        # print("raw angle:")
+        # raw_angle_dt = raw_angle - self.prev_angle_dt_t
+        # print("raw angle dt: {0}".format(raw_angle_dt))
         self.state_t = {
                         "angle": self.angle_normaliser.scale_value(raw_angle),
+                        "angle_deriv": self.prev_angle_dt_t
                         }
+        self.prev_angle_dt_t = deepcopy(raw_angle)
 
     def update_state_t_p1(self):
         raw_angle = deepcopy(self.environment_info.raw_angle_to_goal)
+        angle_tp1 = self.angle_normaliser.scale_value(raw_angle)
+        angle_t =  self.state_t["angle"]
+
+        if (abs(angle_t)) > 0.5:
+            if angle_t > 0 and angle_tp1 < 0:
+                angle_change = (1.0 - angle_t) + (-1.0 - angle_tp1)
+            elif angle_t < 0 and angle_tp1 > 0:
+                angle_change = (1.0 - angle_tp1) + (-1.0 - angle_t)
+            else:
+                angle_change = angle_tp1 - angle_t
+        else:
+            angle_change = angle_tp1 - angle_t
+
+        tmp_angle_change = sum(self.angle_dt_moving_window.getWindow(angle_change)) / 5.0
         self.state_t_plus_1 = {
-                                "angle": self.angle_normaliser.scale_value(raw_angle)}
+                                "angle": self.angle_normaliser.scale_value(raw_angle),
+                                "angle_deriv": self.angle_deriv_normaliser.scale_value(tmp_angle_change)
+                                }
+        self.prev_angle_dt_t = self.angle_deriv_normaliser.scale_value(tmp_angle_change)
+
         
     def update_policy(self, td_error, exploration):
         UPDATE_CONDITION = False
@@ -176,12 +201,12 @@ class NessieRlSimulation(object):
                                             actor_config["num_hidden_units"], hlayer_activation_func="tanh")
             self.approx_policy = ANNApproximator(actor_config["num_input_dims"], actor_config["num_hidden_units"], hlayer_activation_func="tanh")
             policy_init = "/home/gordon/data/tmp/policy_params0.npy"
-            self.approx_policy.setParams(list(np.load(policy_init)))
+            # self.approx_policy.setParams(list(np.load(policy_init)))
             
-            if CONFIG["test_policy"] is True:
-                if not os.path.exists("/tmp/{0}".format(results_to_validate)):
-                    continue
-                self.approx_policy.setParams()
+            #if CONFIG["test_policy"] is True:
+            #    if not os.path.exists("/tmp/{0}".format(results_to_validate)):
+            #        continue
+                #self.approx_policy.setParams()
             prev_critic_gradient = np.zeros(self.approx_critic.getParams().shape)
 
             # Set up trace objects
@@ -205,7 +230,10 @@ class NessieRlSimulation(object):
                 self.traces_policy.reset()
 
                 self.env.nav_reset()
-                self.env.reset()                
+                self.env.reset()
+                self.ounoise.reset()
+
+                self.angle_dt_moving_window.reset()
 
                 episode_ended = False
                 episode_ended_learning = False
@@ -213,24 +241,42 @@ class NessieRlSimulation(object):
                 if episode_number > 5 and exploration_sigma > 0.1:
                     exploration_sigma *= CONFIG["exploration_decay"]
 
+                self.prev_angle_dt_t = 0.0
+                self.prev_angle_dt_tp1 = 0.0
+
                 for step_number in range(CONFIG["max_num_steps"]):
                     # Update the state for timestep t
                     self.update_state_t()
                     
                     action_t_deterministic = self.approx_policy.computeOutput(self.state_t.values())
                     if step_number % (3 * CONFIG["spin_rate"]) == 0:
+                        # exploration = self.ounoise.get_action(action_t_deterministic)
                         exploration = np.random.normal(0.0, CONFIG["exploration_sigma"])
-                    action_t =  np.clip(action_t_deterministic + exploration, -10, 10)
+                        # tmp_action = self.ounoise.get_action(action_t_deterministic)[0]
+                        # exploration = tmp_action - action_t_deterministic
+
+                        #exploration = self.ounoise.function(action_t_deterministic, 0, 0.2, 0.1)[0]
+                    # else:
+                    #    action_t = deepcopy(self.prev_action)
+
+
+                    # self.prev_action = deepcopy(action_t)
+
+                    action_t = np.clip(action_t_deterministic + exploration, -10, 10)
                     
                     if episode_number % CONFIG["log_actions"] == 0:
                         if step_number == 0:
                             state_keys = self.state_t.keys()
+                            state_keys.append("exploration")
+                            state_keys.append("explore_action")
                             state_keys.append("action")
                             label_logging_format = "#{" + "}\t{".join(
                                 [str(state_keys.index(el)) for el in state_keys]) + "}\n"
                             f_actions.write(label_logging_format.format(*state_keys))
 
                         logging_list = self.state_t.values()
+                        logging_list.append(exploration)
+                        logging_list.append(action_t)
                         logging_list.append(action_t_deterministic)
                         action_logging_format = "{" + "}\t{".join(
                             [str(logging_list.index(el)) for el in logging_list]) + "}\n"
