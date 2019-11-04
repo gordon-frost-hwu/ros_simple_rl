@@ -34,6 +34,9 @@ class ANNApproximator(object):
     def build_model(self, nn_hdim, hlayer_activation_func):
 
         # Initialize the parameters to random values. We need to learn these.
+        # print("nn_input_dim: {0}".format(self.nn_input_dim))
+        # print("nn_hdim: {0}".format(nn_hdim))
+
         self.W1 = np.random.randn(self.nn_input_dim, nn_hdim) / np.sqrt(self.nn_input_dim)
         self.b1 = np.zeros((1, nn_hdim))
         self.W2 = np.random.randn(nn_hdim, self.nn_output_dim) / np.sqrt(nn_hdim)

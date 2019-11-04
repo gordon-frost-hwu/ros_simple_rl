@@ -19,8 +19,8 @@ class SlidingWindow(object):
         """ Create a FIFO optimized queue with a max size. Upon append, elements are shifted left by 1 """
         self.first_val = True
         self._window_size = window_size
-        self._reset()
-    def _reset(self):
+        self.reset()
+    def reset(self):
         # Initialize or reset the current window
         self.window = deque([0.0 for i in range(self._window_size)], maxlen=self._window_size)
         self.first_val = True
@@ -33,6 +33,8 @@ class SlidingWindow(object):
         else:
             self.window.append(val)
         return list(self.window)
+    def getLastItem(self):
+        return self.window[-1]
 
 class DifferentiateVariable(object):
     """ Class which is used for differientating, i.e. rate of change, of a real valued variable. The window size

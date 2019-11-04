@@ -28,10 +28,10 @@ from moving_differentiator import SlidingWindow
 actor_config = {
     "approximator_name": "policy",
     "initial_value": 0.0,
-    "alpha": 0.0005,
+    "alpha": 0.001,
     "random_weights": False,
     "num_input_dims": 2,
-    "num_hidden_units": 12
+    "num_hidden_units": 24
 }
 
 critic_config = {
@@ -43,6 +43,7 @@ critic_config = {
 }
 CONFIG = {
     "test_policy": False,
+    "generate_initial_weights": False,
     "log_actions": 1,
     "log_traces": False,
     "spin_rate": 10,
@@ -55,8 +56,8 @@ CONFIG = {
     "critic algorithm": "ann_true",
     "sparse reward": False,
     "gamma": 0.98,   # was 0.1
-    "lambda": 0.6,  # was 0.0
-    "alpha_decay": 0.0, # was 0.00005
+    "lambda": 0.98,  # was 0.0
+    "alpha_decay": 0.0,  # was 0.00005
     "exploration_sigma": 0.1,
     "exploration_decay": 1.0,
     "min_trace_value": 0.1
@@ -73,7 +74,7 @@ class NessieRlSimulation(object):
         self.position_normaliser = DynamicNormalizer([-2.4, 2.4], [-1.0, 1.0])
         self.position_deriv_normaliser = DynamicNormalizer([-1.75, 1.75], [-1.0, 1.0])
         self.angle_normaliser = DynamicNormalizer([-3.14, 3.14], [-1.0, 1.0])
-        self.angle_deriv_normaliser = DynamicNormalizer([-0.01, 0.01], [-1.0, 1.0])
+        self.angle_deriv_normaliser = DynamicNormalizer([-0.02, 0.02], [-1.0, 1.0])
 
         self.angle_dt_moving_window = SlidingWindow(5)
         self.last_150_episode_returns = SlidingWindow(150)
@@ -133,17 +134,20 @@ class NessieRlSimulation(object):
     def update_state_t_p1(self):
         raw_angle = deepcopy(self.environment_info.raw_angle_to_goal)
         angle_tp1 = self.angle_normaliser.scale_value(raw_angle)
-        angle_t =  self.state_t["angle"]
+        angle_t = self.state_t["angle"]
 
-        if (abs(angle_t)) > 0.5:
-            if angle_t > 0 and angle_tp1 < 0:
-                angle_change = (1.0 - angle_t) + (-1.0 - angle_tp1)
-            elif angle_t < 0 and angle_tp1 > 0:
-                angle_change = (1.0 - angle_tp1) + (-1.0 - angle_t)
-            else:
-                angle_change = angle_tp1 - angle_t
-        else:
-            angle_change = angle_tp1 - angle_t
+        # if (abs(angle_t)) > 0.5:
+        #     if angle_t > 0 and angle_tp1 < 0:
+        #         angle_change = (1.0 - angle_t) + (-1.0 - angle_tp1)
+        #     elif angle_t < 0 and angle_tp1 > 0:
+        #         angle_change = (1.0 - angle_tp1) + (-1.0 - angle_t)
+        #     else:
+        #         angle_change = angle_tp1 - angle_t
+        # else:
+        abs_angle_tp1 = np.abs(angle_tp1)
+        abs_angle_t = np.abs(angle_t)
+        sign = -1 if abs_angle_tp1 > abs_angle_t else 1
+        angle_change = sign * (abs_angle_tp1 - abs_angle_t)
 
         tmp_angle_change = sum(self.angle_dt_moving_window.getWindow(angle_change)) / 5.0
         self.state_t_plus_1 = {
@@ -191,8 +195,8 @@ class NessieRlSimulation(object):
                 os.makedirs(results_dir)
             filename = os.path.basename(sys.argv[0])
             os.system("cp {0} {1}".format(filename, results_dir))
-            os.system("cp /home/gordon/software/simple-rl/srl/basis_functions/simple_basis_functions.py {0}".format(results_dir))
-            os.system("cp /home/gordon/software/simple-rl/srl/environments/cartpole.py {0}".format(results_dir))
+            os.system("cp /home/gordon/rosbuild_ws/ros_simple_rl/src/srl/basis_functions/simple_basis_functions.py {0}".format(results_dir))
+            os.system("cp /home/gordon/rosbuild_ws/ros_simple_rl/src/srl/environments/ros_behaviour_interface.py {0}".format(results_dir))
 
             f_returns = open("{0}{1}".format(results_dir, "/EpisodeReturn.fso"), "w", 1)
 
@@ -200,8 +204,8 @@ class NessieRlSimulation(object):
             self.approx_critic = ANNApproximator(actor_config["num_input_dims"],
                                             actor_config["num_hidden_units"], hlayer_activation_func="tanh")
             self.approx_policy = ANNApproximator(actor_config["num_input_dims"], actor_config["num_hidden_units"], hlayer_activation_func="tanh")
-            policy_init = "/home/gordon/data/tmp/policy_params0.npy"
-            # self.approx_policy.setParams(list(np.load(policy_init)))
+            policy_init = "/home/gordon/data/tmp/initial_2dim_24h_policy_params.npy"
+            self.approx_policy.setParams(list(np.load(policy_init)))
             
             #if CONFIG["test_policy"] is True:
             #    if not os.path.exists("/tmp/{0}".format(results_to_validate)):
@@ -244,12 +248,22 @@ class NessieRlSimulation(object):
                 self.prev_angle_dt_t = 0.0
                 self.prev_angle_dt_tp1 = 0.0
 
+                if CONFIG["generate_initial_weights"]:
+                    self.approx_policy = ANNApproximator(actor_config["num_input_dims"],
+                                                         actor_config["num_hidden_units"],
+                                                         hlayer_activation_func="tanh")
+
                 for step_number in range(CONFIG["max_num_steps"]):
                     # Update the state for timestep t
                     self.update_state_t()
                     
                     action_t_deterministic = self.approx_policy.computeOutput(self.state_t.values())
-                    if step_number % (3 * CONFIG["spin_rate"]) == 0:
+
+                    # if episode_number > 9:
+                    #     control_rate = 0.5
+                    # else:
+                    control_rate = 3
+                    if step_number % (control_rate * CONFIG["spin_rate"]) == 0:
                         # exploration = self.ounoise.get_action(action_t_deterministic)
                         exploration = np.random.normal(0.0, CONFIG["exploration_sigma"])
                         # tmp_action = self.ounoise.get_action(action_t_deterministic)[0]
@@ -262,7 +276,10 @@ class NessieRlSimulation(object):
 
                     # self.prev_action = deepcopy(action_t)
 
-                    action_t = np.clip(action_t_deterministic + exploration, -10, 10)
+                    if not CONFIG["generate_initial_weights"]:
+                        action_t = np.clip(action_t_deterministic + exploration, -10, 10)
+                    else:
+                        action_t = np.clip(action_t_deterministic, -10, 10)
                     
                     if episode_number % CONFIG["log_actions"] == 0:
                         if step_number == 0:
@@ -291,18 +308,26 @@ class NessieRlSimulation(object):
                     # Update the state for timestep t + 1, after action is performed
                     self.update_state_t_p1()
 
-                    reward = self.env.getReward(self.state_t_plus_1)
+                    to_end = False
+                    if self.state_t["angle"] > 0.9:
+                        reward = -3000 - reward_cum
+                        to_end = True
+                    else:
+                        reward = self.env.getReward(self.state_t_plus_1, action_t)
                     
                     if not episode_ended_learning:
-                        # ---- Critic Update ----
-                        (td_error, critic_gradient) = self.update_critic(reward)
+                        if not CONFIG["generate_initial_weights"]:
+                            # ---- Critic Update ----
+                            (td_error, critic_gradient) = self.update_critic(reward)
 
-                        # ---- Policy Update -------
-                        self.update_policy(td_error, exploration)
+                            # ---- Policy Update -------
+                            self.update_policy(td_error, exploration)
 
-                        prev_critic_gradient = deepcopy(critic_gradient)
-                    
+                            prev_critic_gradient = deepcopy(critic_gradient)
+
                         reward_cum += reward
+                        if to_end:
+                            break
                     
                     # TODO - add check for if episode ended early. i.e. moving average
                     """ episode_ended_learning = self.env.episodeEnded()

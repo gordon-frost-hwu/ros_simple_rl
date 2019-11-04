@@ -6,6 +6,7 @@ from std_srvs.srv import Empty, EmptyResponse
 from std_msgs.msg import Bool
 from vehicle_interface.msg import Vector6
 from nav_class import Nav
+import numpy as np
 
 class ROSBehaviourInterface(Nav):
     """ Class that encapsulates the ROS services needed to use the Nessie platform in a RL environment using the
@@ -47,6 +48,20 @@ class ROSBehaviourInterface(Nav):
         rospy.sleep(2)
         self.disable_behaviours(False)
     
-    def getReward(self, state):
-        reward = -10.0 + (10.0 * (1.0 - abs(state["angle"])))
+    def getReward(self, state, action):
+        angle = abs(state["angle"])
+        angle_dt = state["angle_deriv"]
+        if angle_dt < 0:
+            neg_dt = abs(angle_dt)
+        else:
+            neg_dt = 0
+
+        if angle_dt >= 0:
+            pos_dt = angle_dt
+        else:
+            pos_dt = 0
+        s = np.array([angle, neg_dt, pos_dt, np.abs(action)])
+        weights = np.array([-10.0, -3.0, -0.5, 0.0])
+        reward = np.dot(s, weights)
+        # reward = -10.0 + (10.0 * (1.0 - angle))
         return reward
