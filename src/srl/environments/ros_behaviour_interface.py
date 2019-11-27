@@ -6,6 +6,7 @@ from std_srvs.srv import Empty, EmptyResponse
 from std_msgs.msg import Bool
 from vehicle_interface.msg import Vector6
 from nav_class import Nav
+import random
 import numpy as np
 
 class ROSBehaviourInterface(Nav):
@@ -44,8 +45,11 @@ class ROSBehaviourInterface(Nav):
     
     def reset(self):
         self.disable_behaviours(True)
-        self.pilot([0, 0, 0, 0, 0, 1.57])
+        # while (np.abs(self.orientation.yaw - 1.57) > 0.1)
+        start_yaw = 1.57	# random.randrange(-30.0, 30.0, 5) / 10.0
+        self.pilot([0, 0, 0, 0, 0, start_yaw])
         rospy.sleep(2)
+        #    print("Sending to start position")
         self.disable_behaviours(False)
     
     def getReward(self, state, action):
@@ -61,7 +65,7 @@ class ROSBehaviourInterface(Nav):
         else:
             pos_dt = 0
         s = np.array([angle, neg_dt, pos_dt, np.abs(action)])
-        weights = np.array([-10.0, -3.0, -0.5, 0.0])
+        weights = np.array([-10.0, -30.0, 15.0, -0.5])
         reward = np.dot(s, weights)
         # reward = -10.0 + (10.0 * (1.0 - angle))
         return reward
