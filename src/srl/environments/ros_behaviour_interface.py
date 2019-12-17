@@ -4,7 +4,7 @@ import rospy
 from srv_msgs.srv import DisableOutput, ChangeParam, DoHover, LogNav
 from std_srvs.srv import Empty, EmptyResponse
 from std_msgs.msg import Bool
-from vehicle_interface.msg import Vector6
+from vehicle_interface.msg import Vector6, PilotRequest
 from nav_class import Nav
 import random
 import numpy as np
@@ -23,11 +23,18 @@ class ROSBehaviourInterface(Nav):
         self.logNav = rospy.ServiceProxy("/nav/log_nav", LogNav)
 
         terminate_run_sub = rospy.Subscriber("/terminate_run", Bool, self._terminateRunCallback)
+        
+        self.pilot_position_request = rospy.Publisher("/pilot/position_req", PilotRequest)
 
         Nav.__init__(self)
         self.position = self._nav.position
         self.orientation = self._nav.orientation
         self.orientation_rate = self._nav.orientation_rate
+        
+    def pilotPublishPositionRequest(self, pose):
+		request = PilotRequest()
+		request.position = pose
+		self.pilot_position_request.publish(request)
 
     def _terminateRunCallback(self, msg):
         self.ManualEndRun = msg.data
@@ -65,7 +72,8 @@ class ROSBehaviourInterface(Nav):
         else:
             pos_dt = 0
         s = np.array([angle, neg_dt, pos_dt, np.abs(action)])
-        weights = np.array([-10.0, -30.0, 15.0, -0.5])
+        # was [-20.0, -30.0, 15.0, -0.5]
+        weights = np.array([-20.0, -30.0, 15.0, -0.5])
         reward = np.dot(s, weights)
         # reward = -10.0 + (10.0 * (1.0 - angle))
         return reward

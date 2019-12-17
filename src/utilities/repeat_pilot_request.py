@@ -12,13 +12,14 @@ from copy import deepcopy
 from srl.environments.ros_behaviour_interface import ROSBehaviourInterface
 from srl.useful_classes.ros_environment_goals import EnvironmentInfo
 from srl.useful_classes.ros_thruster_wrapper import Thrusters
+from vehicle_interface.msg import FloatArray
 
 from variable_normalizer import DynamicNormalizer
 from moving_differentiator import SlidingWindow
 
 CONFIG = {
-	"num_runs": 20,
-    "run_time": 15
+    "num_runs": 20,
+    "run_time": 30
 }
 
 class RepeatPilotRequest(object):
@@ -40,9 +41,15 @@ class RepeatPilotRequest(object):
         self.thrusters = Thrusters()
         self.env = ROSBehaviourInterface()
         self.environment_info = EnvironmentInfo()
+        
+        sub_pilot_position_controller_output = rospy.Subscriber("/pilot/position_pid_output", FloatArray, self.positionControllerCallback)
 
         self.prev_action = 0.0
-        
+        self.pos_pid_output = np.zeros(6)
+    
+    def positionControllerCallback(self, msg):
+		self.pos_pid_output = msg.values
+		
     def update_state_t(self):
         raw_angle = deepcopy(self.environment_info.raw_angle_to_goal)
         # print("raw angle:")
@@ -79,51 +86,57 @@ class RepeatPilotRequest(object):
         self.prev_angle_dt_t = self.angle_deriv_normaliser.scale_value(tmp_angle_change)
 
     def run(self):
+        results_dir = "/home/gordon/data/tmp/{0}{1}".format(self.results_dir_name, 0)
         
         for run in range(CONFIG["num_runs"]):
             
             # Create logging directory and files
-            results_dir = "/home/gordon/data/tmp/{0}{1}".format(self.results_dir_name, run)
             if not os.path.exists(results_dir):
                 os.makedirs(results_dir)
             filename = os.path.basename(sys.argv[0])
             os.system("cp {0} {1}".format(filename, results_dir))
-            os.system("cp /home/gordon/rosbuild_ws/ros_simple_rl/src/utilities.repeat_pilot_request.py {0}".format(results_dir))
+            os.system("cp /home/gordon/rosbuild_ws/ros_simple_rl/src/utilities/repeat_pilot_request.py {0}".format(results_dir))
             
             # reset stuff for the run
-			self.env.nav_reset()
-			self.env.reset()
-			self.angle_dt_moving_window.reset()
-			self.prev_angle_dt_t = 0.0
-			self.prev_angle_dt_tp1 = 0.0
-			
-			# create log file
+            self.env.nav_reset()
+            self.env.reset()
+            self.angle_dt_moving_window.reset()
+            self.prev_angle_dt_t = 0.0
+            self.prev_angle_dt_tp1 = 0.0
+            
+            # create log file
             f_actions = open("{0}{1}".format(results_dir, "/actions{0}.csv".format(run)), "w", 1)
             
             start_time = time.time()
             end_time = start_time + CONFIG["run_time"]
             
-            # send pilot request
-            self.env.pilot([0, 0, 0, 0, 0, 0])
+            first_step = True
             
-            while time.time() < end_time:
-				# perform a 'step'
-				self.update_state_t()
-				rospy.sleep(0.1)
-				self.update_state_t_p1()
-				
-				# log the current state information
-				if step_number == 0:
-					state_keys = self.state_t.keys()
-					label_logging_format = "#{" + "}\t{".join(
-						[str(state_keys.index(el)) for el in state_keys]) + "}\n"
-					f_actions.write(label_logging_format.format(*state_keys))
+            while time.time() < end_time and not rospy.is_shutdown():
+                
+                # send pilot request
+                self.env.pilotPublishPositionRequest([0, 0, 0, 0, 0, 0])
+                
+                # perform a 'step'
+                self.update_state_t()
+                rospy.sleep(0.1)
+                self.update_state_t_p1()
+                
+                # log the current state information
+                if first_step:
+                    first_step = False
+                    state_keys = self.state_t.keys()
+                    state_keys.append("action")
+                    label_logging_format = "#{" + "}\t{".join(
+                        [str(state_keys.index(el)) for el in state_keys]) + "}\n"
+                    f_actions.write(label_logging_format.format(*state_keys))
 
-				logging_list = self.state_t.values()
-				action_logging_format = "{" + "}\t{".join(
-					[str(logging_list.index(el)) for el in logging_list]) + "}\n"
-				f_actions.write(action_logging_format.format(*logging_list))
-				
+                logging_list = self.state_t.values()
+                logging_list.append(self.pos_pid_output[5])
+                action_logging_format = "{" + "}\t{".join(
+                    [str(logging_list.index(el)) for el in logging_list]) + "}\n"
+                f_actions.write(action_logging_format.format(*logging_list))
+                
 
 
 if __name__ == '__main__':
