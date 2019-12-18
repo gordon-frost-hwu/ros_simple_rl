@@ -31,7 +31,7 @@ actor_config = {
     "alpha": 0.0005,
     "random_weights": False,
     "num_input_dims": 2,
-    "num_hidden_units": 24
+    "num_hidden_units": 48
 }
 
 critic_config = {
@@ -47,15 +47,15 @@ CONFIG = {
     "log_actions": 1,
     "log_traces": False,
     "spin_rate": 10,
-    "num_runs": 15,
+    "num_runs": 10,
     "num_episodes": 50,
     "max_num_steps": 350,
     "policy_type": "ann",
     "actor update rule": "cacla",
-    "critic algorithm": "ann_trad",
+    "critic algorithm": "ann_true",
     "sparse reward": False,
     "gamma": 0.98,   # was 0.1
-    "lambda": 0.93,  # was 0.0
+    "lambda": 0.93,  # was 0.93
     "alpha_decay": 0.0,  # was 0.00005
     "exploration_sigma": 0.1,
     "exploration_decay": 1.0, # was 0.975
@@ -63,10 +63,12 @@ CONFIG = {
 }
 
 TEST_CONFIG = {
-    "folder": "TradHighGamma",
-    "run_numbers": [i for i in range(13)],
-    "episode_numbers": [40, 41, 42, 43, 44, 45, 46, 47, 48, 49]    # episode number of 1000 means all episodes
+    "folder": "SanityCheckNoPosReward",
+    "run_numbers": [i for i in range(3)],
+    "episode_numbers": [i for i in range(50)]    # episode number of 1000 means all episodes
 }
+# [40, 41, 42, 43, 44, 45, 46, 47, 48, 49]
+# 20,21,22,23,24,25,26,27,28,29, 
 
 class NessieRlSimulation(object):
     def __init__(self):
@@ -220,24 +222,25 @@ class NessieRlSimulation(object):
             filename = os.path.basename(sys.argv[0])
             os.system("cp {0} {1}".format(filename, results_dir))
             os.system("cp /home/gordon/rosbuild_ws/ros_simple_rl/src/srl/environments/ros_behaviour_interface.py {0}".format(results_dir))
+            os.system("cp /home/gordon/rosbuild_ws/ros_simple_rl/src/utilities/orstein_exploration.py {0}".format(results_dir))
 
             if CONFIG["test_policy"]:
-                os.system("cp {0}/Num* {1}/LearningNumSteps.fso".format(results_to_load_directory, results_dir))
                 os.system("cp {0}/Epi* {1}/LearningEpisodeReturn.fso".format(results_to_load_directory, results_dir))
-                os.system("cp {0}/sto* {1}/LearningMainScript.py".format(results_to_load_directory, results_dir))
-                os.system("cp {0}/sim* {1}/LearningBasisFunctions.py".format(results_to_load_directory, results_dir))
+                os.system("cp {0}/basic* {1}/LearningMainScript.py".format(results_to_load_directory, results_dir))
 
             f_returns = open("{0}{1}".format(results_dir, "/EpisodeReturn.fso"), "w", 1)
 
             # policies and critics
             self.approx_critic = ANNApproximator(actor_config["num_input_dims"],
                                             actor_config["num_hidden_units"], hlayer_activation_func="tanh")
-            critic_init = "/home/gordon/data/tmp/critic_params.npy"
-            self.approx_critic.setParams(list(np.load(critic_init)))
+            if not CONFIG["generate_initial_weights"]:
+				critic_init = "/home/gordon/data/tmp/critic_params_48h.npy"
+				self.approx_critic.setParams(list(np.load(critic_init)))
 
             self.approx_policy = ANNApproximator(actor_config["num_input_dims"], actor_config["num_hidden_units"], hlayer_activation_func="tanh")
-            policy_init = "/home/gordon/data/tmp/initial_2dim_24h_policy_params.npy"
-            self.approx_policy.setParams(list(np.load(policy_init)))
+            if not CONFIG["generate_initial_weights"]:
+				policy_init = "/home/gordon/data/tmp/initial_2dim_48h_policy_params.npy"
+				self.approx_policy.setParams(list(np.load(policy_init)))
             
             # if CONFIG["test_policy"] is True:
             #    if not os.path.exists("/tmp/{0}".format(results_to_validate)):
@@ -313,10 +316,10 @@ class NessieRlSimulation(object):
                     if step_number % (control_rate * CONFIG["spin_rate"]) == 0:
                         # exploration = self.ounoise.get_action(action_t_deterministic)
                         # exploration = np.random.normal(0.0, exploration_sigma)
-                        # tmp_action = self.ounoise.get_action(action_t_deterministic)[0]
-                        # exploration = tmp_action - action_t_deterministic
+                        tmp_action = self.ounoise.get_action(action_t_deterministic)[0]
+                        exploration = tmp_action - action_t_deterministic
 
-                        exploration = self.ounoise.function(action_t_deterministic, 0, 0.2, 0.1)[0]
+                        # exploration = self.ounoise.function(action_t_deterministic, 0, 0.2, 0.1)[0]
                     # else:
                     #    action_t = deepcopy(self.prev_action)
 

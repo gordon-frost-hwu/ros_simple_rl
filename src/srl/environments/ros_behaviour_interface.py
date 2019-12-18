@@ -73,7 +73,7 @@ class ROSBehaviourInterface(Nav):
             pos_dt = 0
         s = np.array([angle, neg_dt, pos_dt, np.abs(action)])
         # was [-20.0, -30.0, 15.0, -0.5]
-        weights = np.array([-20.0, -30.0, 15.0, -0.5])
+        weights = np.array([-20.0, -30.0, 0.0, -2.0])
         reward = np.dot(s, weights)
         # reward = -10.0 + (10.0 * (1.0 - angle))
         return reward
