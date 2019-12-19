@@ -6,6 +6,9 @@ import matplotlib.pyplot as plt
 import rospy
 from auv_msgs.msg import NavSts
 import sys
+from collections import deque
+
+QUEUE_SIZE = 1000
 
 class RealTimePlotter(object):
     def __init__(self, args):
@@ -13,9 +16,12 @@ class RealTimePlotter(object):
         self.active_args = {}
         self.parse_args()
         print(self.active_args)
-        self.values = []
+        
+        self.values = deque()
 
         self.fig, self.axes = plt.subplots()
+        # self.axes.set_xticks(np.arange(0, 1, 0.1))
+        self.axes.set_yticks(np.arange(-3.0, 3.0, 0.5))
         rospy.on_shutdown(self.on_rospy_shutdown)
 
         rospy.Subscriber("/nav/nav_sts", NavSts, self.navCallback)
@@ -33,6 +39,7 @@ class RealTimePlotter(object):
         self.axes.set_ylim([ymin, ymax])
         self.win = self.fig.canvas.manager.window
         self.win.after(500, self.animate)
+        plt.grid()
         plt.show()
 
     def animate(self):
@@ -47,9 +54,14 @@ class RealTimePlotter(object):
         time = stamp.secs + stamp.nsecs * 1e-9
 
         value = msg.orientation.yaw
-        self.values.append((time, value))
+        
+        if self.values.count > QUEUE_SIZE:
+            to_remove_from_plot = self.values.popleft()
+            to_remove_from_plot.remove()
+        
+        self.values.append(self.axes.plot(time, value, "."))
 
-        self.axes.plot(time, value, ".")
+        
 
     def get_arg(self, key):
         if key in self.args:
