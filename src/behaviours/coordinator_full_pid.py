@@ -56,7 +56,7 @@ class Coordinator(object):
         :return:tuple containing the results from each behaviour. Deepcopy is used so that the values do not change
         inside the timestep.
         """
-        return np.array(deepcopy([2.0, 0,0,0,0,0])), np.array(deepcopy(self._yawresult)), \
+        return np.array(deepcopy(self._surgeresult)), np.array(deepcopy(self._yawresult)), \
                np.array(deepcopy(self._swayresult)), np.array(deepcopy(self._pitchresult)), \
                 np.array(deepcopy(self._depthresult))
 
@@ -69,10 +69,9 @@ class Coordinator(object):
                                     self._pitchresult, self._yawresult]:
 
             su_results, y_results, sw_results, p_results, d_results = self.copyResults()
-
             # Combine the behaviours outputs
             # Just plain adding them just now
-            desired_velocities = su_results +  d_results + p_results + y_results    # TODO reinsert Surge and pitch!!!!!!
+            desired_velocities = su_results + sw_results + y_results    # TODO reinsert Surge and pitch!!!!!!
             #desired_velocities = su_results + d_results +  sw_results + y_results    # TODO reinsert Surge and pitch!!!!!!
 
             if not self._disableOutput:
@@ -87,7 +86,9 @@ class Coordinator(object):
 
                 if SEND_VEL_REQUEST:
                     # Send a velocity request msg to the vehicle pilot
-                    self.pilot_vel_pub.publish(PilotRequest(velocity=desired_velocities))
+                    msg = PilotRequest(velocity=desired_velocities)
+                    msg.disable_axis = [0, 1, 1, 1, 1, 0]
+                    self.pilot_vel_pub.publish(msg)
                 else:
                     # Send a force request - easiest to implement new subscriber for this in node_pilot.py??
                     pass

@@ -59,11 +59,11 @@ class Behaviour(object):
             }
         else:
             print("Using PID gains from behaviour.py")
-            self.pid_coeffs = {"surge":     {"kp": 0.25, "kd": 0.1, "ki": 0.0, "lim": 0.0, "offset": 0.0},
+            self.pid_coeffs = {"surge":     {"kp": 0.05, "kd": 0.0, "ki": 0.0, "lim": 0.0, "offset": 0.0},
                                "sway":      {"kp": 0.75, "kd": 0.1, "ki": 0.0, "lim": 0.0, "offset": 0.0},
                                "depth":     {"kp": 0.75, "kd": 0.0, "ki": 0.01, "lim": 0.1, "offset": 0.0},
                                "pitch":     {"kp": 0.75, "kd": 0.5, "ki": 0.0, "lim": 1.0, "offset": 0.1},
-                               "yaw":       {"kp": 0.25, "kd": 0.0, "ki": 0.0, "lim": 0.0, "offset": 0.0}
+                               "yaw":       {"kp": 0.15, "kd": 0.0, "ki": 0.0, "lim": 0.0, "offset": 0.0}
             }
 
     def publishResult(self, res):

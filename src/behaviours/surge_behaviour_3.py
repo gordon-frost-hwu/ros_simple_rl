@@ -71,7 +71,11 @@ class TranslationalBehaviour(Behaviour):
         # rospy.loginfo("Computing behaviours output ...")
         # print(self.goal_position)
         if self.goal_position is not None and self._nav is not None:
-            distance_to_goal = np.sqrt(sum((np.array(self.goal_position[0:2]) - np.array(self._nav))**2))
+            print("nav: {0}".format(self._nav))
+            print("goal: {0}".format(self.goal_position[0:2]))
+            goal_position = [0,0]
+            # distance_to_goal = np.sqrt(sum((np.array(self.goal_position[0:2]) - np.array(self._nav))**2))
+            distance_to_goal = np.sqrt(sum((np.array(goal_position) - np.array(self._nav))**2))
 
             # calculate the velocity curve which is in effect based on the distance to the goal, through a
             # gaussian distribution
@@ -101,9 +105,15 @@ class TranslationalBehaviour(Behaviour):
             #
             # print("Distance to Goal:    {0}".format(distance_to_goal))
             # print("Resulting Surge Velocity:  {0}".format(desired_surge_velocity))
-
+            print(distance_to_goal)
+            
+            desired_surge_velocity = (1.0 - gaussian1D(distance_to_goal, 0.0,
+                                                          1.0,1.0))  # * np.cos(self.raw_angle_to_wp)
+            if abs(self.raw_angle_to_wp) > 1.57:
+                desired_surge_velocity = - desired_surge_velocity
+            print(desired_surge_velocity)
             # Limit the velocities by the maximum possible for the vehicle if required.
-            scaled_velocity = np.array([self._params['gaussian_variance'], 0, 0, 0, 0, 0]) * self.LIMITED_SPEED
+            scaled_velocity = np.array([desired_surge_velocity, 0, 0, 0, 0, 0]) * self.LIMITED_SPEED
 
             # Send the result msg to the coordinator
             self.publishResult(Vector6(values=scaled_velocity))

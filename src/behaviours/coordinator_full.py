@@ -72,7 +72,7 @@ class Coordinator(object):
 
             # Combine the behaviours outputs
             # Just plain adding them just now
-            desired_velocities = d_results + y_results    # TODO reinsert Surge and pitch!!!!!!
+            desired_velocities = su_results + sw_results + d_results + y_results    # TODO reinsert Surge and pitch!!!!!!
 
             if not self._disableOutput:
                 print("Sending Request: [su        sw        dep       rol       pit       yaw]")
