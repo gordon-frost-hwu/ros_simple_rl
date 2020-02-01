@@ -1,0 +1,8 @@
+<launch>
+    <param name = "/simulation_type" value="avoidance" type="string"/>
+
+    <include file="$(find ros_simple_rl)/launch/behaviours_nessie_pid.launch"/>
+    <include file="$(find ros_simple_rl)/launch/logging_only.launch"/>
+    <!--<include file="$(find ros_simple_rl)/launch/nav_and_pilot_thruster_failure.launch"/>-->
+
+</launch>
