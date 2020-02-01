@@ -14,7 +14,7 @@ from srl.basis_functions.simple_basis_functions import RBFBasisFunctions as Basi
 from srl.approximators.linear_approximation import LinearApprox
 from srl.approximators.ann_approximator_from_scratch import ANNApproximator
 from srl.useful_classes.rl_traces import Traces, TrueTraces
-from utilities.orstein_exploration import OUNoise
+from orstein_exploration import OUNoise
 
 from srl.environments.ros_behaviour_interface import ROSBehaviourInterface
 from srl.useful_classes.ros_environment_goals import EnvironmentInfo
@@ -42,13 +42,13 @@ critic_config = {
     "num_input_dims": 2
 }
 CONFIG = {
-    "test_policy": False,
+    "test_policy": True,
     "generate_initial_weights": False,
     "log_actions": 1,
     "log_traces": False,
     "spin_rate": 10,
     "num_runs": 10,
-    "num_episodes": 50,
+    "num_episodes": 20,
     "max_num_steps": 350,
     "policy_type": "ann",
     "actor update rule": "cacla",
@@ -63,9 +63,9 @@ CONFIG = {
 }
 
 TEST_CONFIG = {
-    "folder": "SanityCheckNoPosReward",
-    "run_numbers": [i for i in range(3)],
-    "episode_numbers": [i for i in range(50)]    # episode number of 1000 means all episodes
+    "folder": "NessieRepeatLearningNoDtReward",
+    "run_numbers": [i for i in range(1)],
+    "episode_numbers": [16, 17, 18, 19]    # episode number of 1000 means all episodes
 }
 # [40, 41, 42, 43, 44, 45, 46, 47, 48, 49]
 # 20,21,22,23,24,25,26,27,28,29, 
@@ -213,7 +213,7 @@ class NessieRlSimulation(object):
 
         for run in runs:
             if CONFIG["test_policy"]:
-                self.results_dir_name = "validate_{0}".format(TEST_CONFIG["folder"])
+                self.results_dir_name = "nessie_validate_{0}".format(TEST_CONFIG["folder"])
                 results_to_load_directory = "/tmp/{0}{1}".format(TEST_CONFIG["folder"], run)
             # Create logging directory and files
             results_dir = "/home/gordon/data/tmp/{0}{1}".format(self.results_dir_name, run)
@@ -283,7 +283,7 @@ class NessieRlSimulation(object):
                 self.traces_critic.reset()
                 self.traces_policy.reset()
 
-                self.env.nav_reset()
+                # self.env.nav_reset()
                 self.env.reset()
                 self.ounoise.reset()
 
