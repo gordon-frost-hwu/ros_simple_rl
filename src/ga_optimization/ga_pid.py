@@ -31,9 +31,19 @@ class OptimizePilotPid(object):
     def __init__(self):
         args = sys.argv
         if "-r" in args:
-            self.results_dir_name = args[args.index("-r") + 1]
+            results_dir_name = args[args.index("-r") + 1]
         else:
-            self.results_dir_name = "repeat_pilot_request"
+            results_dir_name = "ga_pid_tuning"
+        self.results_dir = "/home/gordon/data/tmp/{0}{1}".format(results_dir_name, 0)
+
+        if not os.path.exists(self.results_dir):
+            os.makedirs(self.results_dir)
+        filename = os.path.basename(sys.argv[0])
+        os.system("cp {0} {1}".format(filename, self.results_dir))
+        os.system("cp /home/gordon/rosbuild_ws/ros_simple_rl/src/ga_optimization/ga.py {0}".format(
+            self.results_dir))
+
+        self.f_evolution_history = open("{0}{1}".format(self.results_dir, "/evolution_history.csv"), "w", 1)
 
         self.position_normaliser = DynamicNormalizer([-2.4, 2.4], [-1.0, 1.0])
         self.position_deriv_normaliser = DynamicNormalizer([-1.75, 1.75], [-1.0, 1.0])
@@ -46,7 +56,7 @@ class OptimizePilotPid(object):
         self.thrusters = Thrusters()
         self.env = ROSBehaviourInterface()
         self.environment_info = EnvironmentInfo()
-        self.baseline_response = None
+        self.baseline_response = optimal_control_response()
 
         sub_pilot_position_controller_output = rospy.Subscriber("/pilot/position_pid_output", FloatArray,
                                                                 self.positionControllerCallback)
@@ -113,45 +123,54 @@ class OptimizePilotPid(object):
         pop_size = (CONFIG["sol_per_pop"], ga_num_weights)
 
         population = np.random.uniform(low=0.0, high=0.5, size=pop_size)
-
+        individual_id = 0
         # TODO - loop generations
         for generation in range(CONFIG["num_generations"]):
 
             # TODO - loop over population
             for individual in population:
-                self.setPidGains(individual[0], individual[1], individual[2], 0, 0, 0)
-                response = self.getResponse()
-                print("response:")
-                print(response[0:50, :])
+
+                response = self.get_response(individual_id, individual)
+                # print("response:")
+                # print_friendly_rounded = np.around(response[0:50, :], decimals=2)
+                # print(print_friendly_rounded)
                 fitness = self.calculate_fitness(response)
-                print("fitness for solution {0} was {1}".format(individual, fitness))
+                print("Individual: ")
+                print("\tId: {0}".format(individual_id))
+                print("\tParameters: {0}".format(individual))
+                print("\tFitness: {0}".format(fitness))
+
+                self.log_entry(individual_id, individual, fitness)
+
+                individual_id += 1
+
+    def log_entry(self, id, individual, fitness):
+        delimiter = "\t"
+        ind_str = '\t'.join(map(str, individual))
+        entry = "{0}{1}{2}{3}{4}\n".format(id, delimiter, ind_str, delimiter, fitness)
+        print(entry)
+        self.f_evolution_history.write(entry)
 
     def calculate_fitness(self, response):
-        if self.baseline_response is None:
-            self.baseline_response = optimal_control_response()
-        diff = response - self.baseline_response
-        fitness = np.linalg.norm(diff[:, 1])
+        diff = abs(response) - abs(self.baseline_response)
+        fitness = sum(diff[:, 1]) / len(diff)
         return fitness
 
-    def getResponse(self):
-        results_dir = "/home/gordon/data/tmp/{0}{1}".format(self.results_dir_name, 0)
-        # Create logging directory and files
-        if not os.path.exists(results_dir):
-            os.makedirs(results_dir)
-        filename = os.path.basename(sys.argv[0])
-        os.system("cp {0} {1}".format(filename, results_dir))
-        os.system("cp /home/gordon/rosbuild_ws/ros_simple_rl/src/utilities/repeat_pilot_request.py {0}".format(
-            results_dir))
-
+    def get_response(self, id, individual):
         # reset stuff for the run
         self.env.nav_reset()
-        # self.env.reset()
+        # Set usable gains for DoHover action to get to initial position again
+        self.setPidGains(0.35, 0, 0, 0, 0, 0)
+        self.env.reset(disable_behaviours=False)
         self.angle_dt_moving_window.reset()
         self.prev_angle_dt_t = 0.0
         self.prev_angle_dt_tp1 = 0.0
 
+        # Set the gains to those of the individual/solution
+        self.setPidGains(individual[0], individual[1], individual[2], 0, 0, 0)
+
         # create log file
-        # f_actions = open("{0}{1}".format(results_dir, "/actions{0}.csv".format(run)), "w", 1)
+        f_actions = open("{0}{1}".format(self.results_dir, "/actions{0}.csv".format(id)), "w", 1)
 
         start_time = time.time()
         end_time = start_time + CONFIG["run_time"]
@@ -162,7 +181,7 @@ class OptimizePilotPid(object):
         while time.time() < end_time and not rospy.is_shutdown():
 
             # send pilot request
-            self.env.pilotPublishPositionRequest([0, 0, 0, 0, 0, 1.57])
+            self.env.pilotPublishPositionRequest([0, 0, 0, 0, 0, 0])
 
             # perform a 'step'
             self.update_state_t()
@@ -173,18 +192,20 @@ class OptimizePilotPid(object):
             if first_step:
                 first_step = False
                 state_keys = self.state_t.keys()
+                state_keys.append("baseline_angle")
                 state_keys.append("action")
                 label_logging_format = "#{" + "}\t{".join(
                     [str(state_keys.index(el)) for el in state_keys]) + "}\n"
-                # f_actions.write(label_logging_format.format(*state_keys))
+                f_actions.write(label_logging_format.format(*state_keys))
 
             logging_list = self.state_t.values()
+            logging_list.append(self.baseline_response[timestep, 1])
             logging_list.append(self.pos_pid_output[5])
             action_logging_format = "{" + "}\t{".join(
                 [str(logging_list.index(el)) for el in logging_list]) + "}\n"
             response[timestep, :] = [timestep, logging_list[0]]
             timestep += 1
-            # f_actions.write(action_logging_format.format(*logging_list))
+            f_actions.write(action_logging_format.format(*logging_list))
         return response
 
 

@@ -56,14 +56,16 @@ class ROSBehaviourInterface(Nav):
     def performAction(self, param_name, param_value, reverse_flag=False, offset=1.0):
         self.yaw_ros_action(param_name, param_value, reverse_flag, offset)
 
-    def reset(self):
-        self.disable_behaviours(True)
+    def reset(self, disable_behaviours=True):
+        if disable_behaviours:
+            self.disable_behaviours(True)
         # while (np.abs(self.orientation.yaw - 1.57) > 0.1)
         start_yaw = 1.57  # random.randrange(-30.0, 30.0, 5) / 10.0
         self.pilot([0, 0, 0, 0, 0, start_yaw])
         rospy.sleep(2)
         #    print("Sending to start position")
-        self.disable_behaviours(False)
+        if disable_behaviours:
+            self.disable_behaviours(False)
 
     def enable_pilot(self, req):
         srv_req = BooleanServiceRequest()
