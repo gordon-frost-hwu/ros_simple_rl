@@ -18,11 +18,12 @@ from vehicle_interface.msg import FloatArray
 from utilities.optimal_control_response import optimal_control_response
 from variable_normalizer import DynamicNormalizer
 from moving_differentiator import SlidingWindow
+from ga import *
 
 CONFIG = {
-    "num_generations": 20,
+    "num_generations": 2000,
     "run_time": 30,
-    "sol_per_pop": 8,
+    "sol_per_pop": 8,   # was 8
     "num_parents_mating": 4
 }
 
@@ -122,38 +123,70 @@ class OptimizePilotPid(object):
 
         pop_size = (CONFIG["sol_per_pop"], ga_num_weights)
 
-        population = np.random.uniform(low=0.0, high=0.5, size=pop_size)
-        individual_id = 0
+        population = np.random.uniform(low=0.0, high=1.0, size=pop_size)
+        f_generation_max = open("{0}{1}".format(self.results_dir, "/generation_history.csv"), "w", 1)
+        global_individual_id = 0
         # TODO - loop generations
-        for generation in range(CONFIG["num_generations"]):
-
+        for generation_id in range(CONFIG["num_generations"]):
+            generation = np.zeros([CONFIG["sol_per_pop"], ga_num_weights + 1])
+            local_individual_id = 0
+            print("------- New Generation ----------")
             # TODO - loop over population
             for individual in population:
+                print("----Individual----")
+                generation[local_individual_id, 0:ga_num_weights] = deepcopy(individual)
 
-                response = self.get_response(individual_id, individual)
+                response = self.get_response(global_individual_id, individual)
                 # print("response:")
                 # print_friendly_rounded = np.around(response[0:50, :], decimals=2)
                 # print(print_friendly_rounded)
-                fitness = self.calculate_fitness(response)
+                individual_fitness = self.calculate_fitness(response)
+                generation[local_individual_id, -1] = individual_fitness
                 print("Individual: ")
-                print("\tId: {0}".format(individual_id))
+                print("\tId: {0}".format(global_individual_id))
                 print("\tParameters: {0}".format(individual))
-                print("\tFitness: {0}".format(fitness))
+                print("\tFitness: {0}".format(individual_fitness))
+                print(generation)
+                self.log_entry(self.f_evolution_history, global_individual_id, individual, individual_fitness)
 
-                self.log_entry(individual_id, individual, fitness)
+                global_individual_id += 1
+                local_individual_id += 1
 
-                individual_id += 1
+            # fitness now calculated for population
 
-    def log_entry(self, id, individual, fitness):
+            # Log the max fitness for the current generation
+            max_fitness_idx = np.where(generation[:, -1] == np.amin(generation[:, -1]))[0][0]
+            print("generation row idx of min fitness: {0}".format(max_fitness_idx))
+            generation_max_fitness = deepcopy(generation[max_fitness_idx, -1])
+            generation_max_fitness_individual = deepcopy(generation[max_fitness_idx, 0:ga_num_weights])
+            self.log_entry(f_generation_max,
+                           global_individual_id,
+                           generation_max_fitness_individual,
+                           generation_max_fitness)
+
+            fitness = generation[:, -1]
+
+            # Selecting the best parents in the population for mating.
+            parents = select_mating_pool(population, fitness, CONFIG["num_parents_mating"])
+
+            offspring_crossover = crossover(parents,
+                                            offspring_size=(pop_size[0] - parents.shape[0], ga_num_weights))
+
+            offspring_mutation = mutation(offspring_crossover, num_mutations=2)
+
+            # Creating the new population based on the parents and offspring.
+            population[0:parents.shape[0], :] = parents
+            population[parents.shape[0]:, :] = offspring_mutation
+
+    def log_entry(self, file, id, individual, fitness):
         delimiter = "\t"
         ind_str = '\t'.join(map(str, individual))
         entry = "{0}{1}{2}{3}{4}\n".format(id, delimiter, ind_str, delimiter, fitness)
-        print(entry)
-        self.f_evolution_history.write(entry)
+        file.write(entry)
 
     def calculate_fitness(self, response):
         diff = abs(response) - abs(self.baseline_response)
-        fitness = sum(diff[:, 1]) / len(diff)
+        fitness = abs(sum(diff[:, 1]) / len(diff))
         return fitness
 
     def get_response(self, id, individual):
