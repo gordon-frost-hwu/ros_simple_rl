@@ -4,7 +4,7 @@ import roslib;
 roslib.load_manifest("ros_simple_rl")
 import rospy
 import numpy as np
-
+import pandas as pd
 import sys
 import time
 import os
@@ -22,7 +22,7 @@ from ga import *
 
 CONFIG = {
     "num_generations": 2000,
-    "run_time": 30,
+    "run_time": 15,
     "sol_per_pop": 8,   # was 8
     "num_parents_mating": 4
 }
@@ -115,7 +115,7 @@ class OptimizePilotPid(object):
 
     def run(self):
         # Inputs of the equation.
-        ga_state = [0.5, 0.0, 0.0]
+        ga_state = [0.5, 0.0]
 
         # Preparing the population
         # Number of the weights we are looking to optimize.
@@ -186,7 +186,20 @@ class OptimizePilotPid(object):
 
     def calculate_fitness(self, response):
         diff = abs(response) - abs(self.baseline_response)
-        fitness = abs(sum(diff[:, 1]) / len(diff))
+        max_idx = 100  # response.shape[0]
+        step_errors = []
+
+        for idx in range(max_idx):
+            r = response[idx, 1]
+            b = self.baseline_response[idx, 1]
+            step_error = 0.0
+            if r > b:
+                step_error = r - b
+            else:
+                step_error = b - r
+            step_errors.append(step_error)
+
+        fitness = sum(step_errors) / len(step_errors)
         return fitness
 
     def get_response(self, id, individual):
@@ -200,7 +213,7 @@ class OptimizePilotPid(object):
         self.prev_angle_dt_tp1 = 0.0
 
         # Set the gains to those of the individual/solution
-        self.setPidGains(individual[0], individual[1], individual[2], 0, 0, 0)
+        self.setPidGains(individual[0], 0, individual[1], 0, 0, 0)
 
         # create log file
         f_actions = open("{0}{1}".format(self.results_dir, "/actions{0}.csv".format(id)), "w", 1)
@@ -247,7 +260,3 @@ if __name__ == '__main__':
 
     pilot = OptimizePilotPid()
     pilot.run()
-
-
-
-
