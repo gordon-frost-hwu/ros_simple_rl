@@ -44,6 +44,7 @@ class OptimizePilotPid(object):
         os.system("cp /home/gordon/rosbuild_ws/ros_simple_rl/src/ga_optimization/ga.py {0}".format(
             self.results_dir))
 
+        # TODO - add DataFrame for evolution history and generation
         self.f_evolution_history = open("{0}{1}".format(self.results_dir, "/evolution_history.csv"), "w", 1)
 
         self.position_normaliser = DynamicNormalizer([-2.4, 2.4], [-1.0, 1.0])
@@ -206,6 +207,8 @@ class OptimizePilotPid(object):
         # reset stuff for the run
         self.env.nav_reset()
         # Set usable gains for DoHover action to get to initial position again
+        # position sim gains: { "kp": 0.35, "ki": 0.0, "kd": 0.0 }
+        # velocity sim gains: { "kp": 35.0, "ki": 0.0, "kd": 0.0 }
         self.setPidGains(0.35, 0, 0, 0, 0, 0)
         self.env.reset(disable_behaviours=False)
         self.angle_dt_moving_window.reset()
