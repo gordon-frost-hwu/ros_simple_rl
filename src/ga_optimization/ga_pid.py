@@ -21,7 +21,7 @@ from moving_differentiator import SlidingWindow
 from ga import *
 
 CONFIG = {
-    "num_generations": 2000,
+    "num_generations": 50,
     "run_time": 15,
     "sol_per_pop": 8,   # was 8
     "num_parents_mating": 4
@@ -45,6 +45,7 @@ class OptimizePilotPid(object):
             self.results_dir))
 
         # TODO - add DataFrame for evolution history and generation
+        self.df_evolution_history = pd.DataFrame()
         self.f_evolution_history = open("{0}{1}".format(self.results_dir, "/evolution_history.csv"), "w", 1)
 
         self.position_normaliser = DynamicNormalizer([-2.4, 2.4], [-1.0, 1.0])
@@ -124,60 +125,127 @@ class OptimizePilotPid(object):
 
         pop_size = (CONFIG["sol_per_pop"], ga_num_weights)
 
-        population = np.random.uniform(low=0.0, high=1.0, size=pop_size)
+        population = np.random.uniform(low=0.0, high=0.1, size=pop_size)
         f_generation_max = open("{0}{1}".format(self.results_dir, "/generation_history.csv"), "w", 1)
         global_individual_id = 0
         # TODO - loop generations
         for generation_id in range(CONFIG["num_generations"]):
-            generation = np.zeros([CONFIG["sol_per_pop"], ga_num_weights + 1])
+            generation_df = pd.DataFrame()
             local_individual_id = 0
             print("------- New Generation ----------")
             # TODO - loop over population
             for individual in population:
                 print("----Individual----")
-                generation[local_individual_id, 0:ga_num_weights] = deepcopy(individual)
+                # TODO - Check for similar individual in history and if exists, just use it's fitness
+                # individual_df = pd.DataFrame([tuple(individual)])
+                # fudge the column names to be consistent with self.df_evolution_history
+                # individual_df.rename(columns={0: 1, 1: 2}, inplace=True)
 
-                response = self.get_response(global_individual_id, individual)
-                # print("response:")
-                # print_friendly_rounded = np.around(response[0:50, :], decimals=2)
-                # print(print_friendly_rounded)
-                individual_fitness = self.calculate_fitness(response)
-                generation[local_individual_id, -1] = individual_fitness
-                print("Individual: ")
-                print("\tId: {0}".format(global_individual_id))
-                print("\tParameters: {0}".format(individual))
-                print("\tFitness: {0}".format(individual_fitness))
-                print(generation)
+                run_response = True
+                match_found = False
+                if not self.df_evolution_history.empty:
+                    match_found, first_occurance_idx, fitness = self.check_for_existing_individual(individual, ga_num_weights)
+                    if match_found:
+                        # print("Match found in history for individual, using it's previous fitness: {0}".format(fitness))
+                        run_response = False
+
+                if run_response:
+                    response = self.get_response(global_individual_id, individual)
+                    # print("response:")
+                    # print_friendly_rounded = np.around(response[0:50, :], decimals=2)
+                    # print(print_friendly_rounded)
+                    individual_fitness = self.calculate_fitness(response)
+                else:
+                    individual_fitness = fitness
+
+                individual_copy = deepcopy(individual)
+                # gen_row2 = np.array([global_individual_id, individual_copy[0], individual_copy[1], individual_fitness])
+                gen_row = pd.DataFrame()
+
+                gen_row[0] = [global_individual_id] if not match_found else [first_occurance_idx]
+                gen_row[1] = [individual_copy[0]]
+                gen_row[2] = [individual_copy[1]]
+                gen_row[3] = [individual_fitness]
+                print("Row being added to generation_df: ")
+                print(gen_row)
+                generation_df = generation_df.append(gen_row, ignore_index=True)
+                # if local_individual_id == 0:
+                #     gen_df_last_index = generation_df.columns.array[-1]
+                #     generation_df.rename(columns={gen_df_last_index: 'fitness'}, inplace=True)
+
+                evolution_row = pd.DataFrame()
+                evolution_row[0] = [global_individual_id]
+                evolution_row[1] = [individual_copy[0]]
+                evolution_row[2] = [individual_copy[1]]
+                evolution_row[3] = [individual_fitness]
+                self.df_evolution_history = self.df_evolution_history.append(evolution_row, ignore_index=True)
+                # print("DataFrame Evolution History: {0}".format(global_individual_id))
+                # print(self.df_evolution_history)
+                # if global_individual_id == 0:
+                #     self.df_evolution_history.rename(
+                #                                 columns={self.df_evolution_history.columns.array[-1]: 'fitness'},
+                #                                 inplace=True
+                #     )
                 self.log_entry(self.f_evolution_history, global_individual_id, individual, individual_fitness)
 
                 global_individual_id += 1
                 local_individual_id += 1
 
             # fitness now calculated for population
-
+            # print("----------")
+            # print(generation_df.head(8))
+            # print("-----=======")
+            # print(self.df_evolution_history)
+            # print("============")
             # Log the max fitness for the current generation
-            max_fitness_idx = np.where(generation[:, -1] == np.amin(generation[:, -1]))[0][0]
-            print("generation row idx of min fitness: {0}".format(max_fitness_idx))
-            generation_max_fitness = deepcopy(generation[max_fitness_idx, -1])
-            generation_max_fitness_individual = deepcopy(generation[max_fitness_idx, 0:ga_num_weights])
+            best_fitness_idx = generation_df[generation_df.columns[-1]].idxmin()
+            print("generation row idx of min fitness: {0}".format(best_fitness_idx))
+            generation_max_fitness = generation_df.iloc[best_fitness_idx, generation_df.columns[-1]]
+            generation_max_global_id = generation_df.iloc[best_fitness_idx][0]
+            generation_max_fitness_individual = generation_df.iloc[best_fitness_idx][1:ga_num_weights+1]
             self.log_entry(f_generation_max,
-                           global_individual_id,
+                           generation_max_global_id,
                            generation_max_fitness_individual,
                            generation_max_fitness)
 
-            fitness = generation[:, -1]
+            fitness = deepcopy(generation_df.iloc[:, -1].array)
 
+            print("Fitness array:")
+            print(fitness)
             # Selecting the best parents in the population for mating.
             parents = select_mating_pool(population, fitness, CONFIG["num_parents_mating"])
+            print("parents (best {0}): ".format(CONFIG["num_parents_mating"]))
+            print(parents)
 
             offspring_crossover = crossover(parents,
                                             offspring_size=(pop_size[0] - parents.shape[0], ga_num_weights))
 
+            print("offspring_crossover: {0}".format(offspring_crossover))
             offspring_mutation = mutation(offspring_crossover, num_mutations=2)
 
             # Creating the new population based on the parents and offspring.
             population[0:parents.shape[0], :] = parents
             population[parents.shape[0]:, :] = offspring_mutation
+
+    def check_for_existing_individual(self, individual, ga_num_weights):
+        # print("check_for_existing_individual-> individual: {0}".format(individual))
+        evolution_minus_fitness = self.df_evolution_history.iloc[:, 1:ga_num_weights + 1]
+        # print("check_for_existing_individual-> evolution_minus_fitness: {0}".format(evolution_minus_fitness))
+
+        match_found = False
+        fitness = 9999999
+        # TODO - remove loop and use more efficient numpy or pandas routine
+        # individual_exists = evolution_minus_fitness[(evolution_minus_fitness == individual_df).all(axis=1)]
+        for idx, row in evolution_minus_fitness.iterrows():
+            is_close = np.allclose(individual, row.array, atol=0.01)
+            if is_close:
+                match_found = True
+                history_entry = self.df_evolution_history.iloc[idx, :]
+                print("match found: ")
+                print(history_entry)
+                fitness = history_entry.array[-1]
+                break
+        return match_found, idx, fitness
 
     def log_entry(self, file, id, individual, fitness):
         delimiter = "\t"
@@ -187,7 +255,7 @@ class OptimizePilotPid(object):
 
     def calculate_fitness(self, response):
         diff = abs(response) - abs(self.baseline_response)
-        max_idx = 100  # response.shape[0]
+        max_idx = 100   # response.shape[0]
         step_errors = []
 
         for idx in range(max_idx):

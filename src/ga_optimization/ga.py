@@ -39,7 +39,7 @@ def mutation(offspring_crossover, num_mutations=1):
         gene_idx = mutations_counter - 1
         for mutation_num in range(num_mutations):
             # The random value to be added to the gene.
-            random_value = numpy.random.uniform(-1.0, 1.0, 1)
-            offspring_crossover[idx, gene_idx] = offspring_crossover[idx, gene_idx] + random_value
+            random_value = numpy.random.normal(scale=0.3)   # numpy.random.uniform(-1.0, 1.0, 1)
+            offspring_crossover[idx, gene_idx] = numpy.clip(offspring_crossover[idx, gene_idx] + random_value, 0, 5)
             gene_idx = gene_idx + mutations_counter
     return offspring_crossover
