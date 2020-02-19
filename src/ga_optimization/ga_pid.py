@@ -268,7 +268,7 @@ class OptimizePilotPid(object):
                 step_error = b - r
             step_errors.append(step_error)
 
-        fitness = sum(step_errors) / len(step_errors)
+        fitness = sum(step_errors)  # / len(step_errors)
         return fitness
 
     def get_response(self, id, individual):
