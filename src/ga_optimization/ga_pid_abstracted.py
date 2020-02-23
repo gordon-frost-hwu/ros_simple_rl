@@ -29,49 +29,20 @@ CONFIG = {
 
 
 class GAOptimizer(object):
-    def __init__(self, process):
+    def __init__(self, result_dir, process):
+
+        self.results_dir = result_dir
         self._process = process
         if not hasattr(process, "get_response"):
             print("process to be optimised does not have a get_response method")
         if not hasattr(process, "calculate_fitness"):
             print("process to be optimised does not have a calculate_fitness method")
 
-        args = sys.argv
-        if "-r" in args:
-            results_dir_name = args[args.index("-r") + 1]
-        else:
-            results_dir_name = "ga_pid_tuning"
-        self.results_dir = "/home/gordon/data/tmp/{0}{1}".format(results_dir_name, 0)
-
-        if not os.path.exists(self.results_dir):
-            os.makedirs(self.results_dir)
-        filename = os.path.basename(sys.argv[0])
-        os.system("cp {0} {1}".format(filename, self.results_dir))
-        os.system("cp /home/gordon/rosbuild_ws/ros_simple_rl/src/ga_optimization/ga.py {0}".format(
-            self.results_dir))
-
         # TODO - add DataFrame for evolution history and generation
         self.df_evolution_history = pd.DataFrame()
         self.f_evolution_history = open("{0}{1}".format(self.results_dir, "/evolution_history.csv"), "w", 1)
 
-        self.position_normaliser = DynamicNormalizer([-2.4, 2.4], [-1.0, 1.0])
-        self.position_deriv_normaliser = DynamicNormalizer([-1.75, 1.75], [-1.0, 1.0])
-        self.angle_normaliser = DynamicNormalizer([-3.14, 3.14], [-1.0, 1.0])
-        self.angle_deriv_normaliser = DynamicNormalizer([-0.02, 0.02], [-1.0, 1.0])
-
-        self.angle_dt_moving_window = SlidingWindow(5)
-        self.last_150_episode_returns = SlidingWindow(150)
-
-        self.thrusters = Thrusters()
-        self.env = ROSBehaviourInterface()
-        self.environment_info = EnvironmentInfo()
         self.baseline_response = optimal_control_response()
-
-        sub_pilot_position_controller_output = rospy.Subscriber("/pilot/position_pid_output", FloatArray,
-                                                                self.positionControllerCallback)
-
-        self.prev_action = 0.0
-        self.pos_pid_output = np.zeros(6)
 
     def run(self):
         # Inputs of the equation.
@@ -213,6 +184,27 @@ class GAOptimizer(object):
 
 
 class PilotPidProcess(object):
+    def __init__(self, results_parent):
+        self.results_dir = results_parent
+        self.position_normaliser = DynamicNormalizer([-2.4, 2.4], [-1.0, 1.0])
+        self.position_deriv_normaliser = DynamicNormalizer([-1.75, 1.75], [-1.0, 1.0])
+        self.angle_normaliser = DynamicNormalizer([-3.14, 3.14], [-1.0, 1.0])
+        self.angle_deriv_normaliser = DynamicNormalizer([-0.02, 0.02], [-1.0, 1.0])
+
+        self.angle_dt_moving_window = SlidingWindow(5)
+        self.last_150_episode_returns = SlidingWindow(150)
+
+        self.thrusters = Thrusters()
+        self.env = ROSBehaviourInterface()
+        self.environment_info = EnvironmentInfo()
+
+        sub_pilot_position_controller_output = rospy.Subscriber("/pilot/position_pid_output", FloatArray,
+                                                                self.positionControllerCallback)
+        self.prev_action = 0.0
+        self.pos_pid_output = np.zeros(6)
+
+        self.baseline_response = optimal_control_response()
+
     def positionControllerCallback(self, msg):
         self.pos_pid_output = msg.values
 
@@ -336,6 +328,20 @@ class PilotPidProcess(object):
 if __name__ == '__main__':
     rospy.init_node("ga_pid_optimization")
 
-    process = PilotPidProcess()
-    pilot = GAOptimizer(process)
+    args = sys.argv
+    if "-r" in args:
+        results_dir_name = args[args.index("-r") + 1]
+    else:
+        results_dir_name = "ga_pid_tuning"
+    results_dir = "/home/gordon/data/tmp/{0}{1}".format(results_dir_name, 0)
+
+    if not os.path.exists(results_dir):
+        os.makedirs(results_dir)
+    filename = os.path.basename(sys.argv[0])
+    os.system("cp {0} {1}".format(filename, results_dir))
+    os.system("cp /home/gordon/rosbuild_ws/ros_simple_rl/src/ga_optimization/ga.py {0}".format(
+        results_dir))
+
+    process = PilotPidProcess(results_dir)
+    pilot = GAOptimizer(results_dir, process)
     pilot.run()
