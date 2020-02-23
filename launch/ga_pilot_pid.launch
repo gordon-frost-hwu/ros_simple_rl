@@ -1,0 +1,12 @@
+<launch>
+
+    <!--start nav and pilot -->
+    <include file="$(find vehicle_core)/launch/nav_sim.launch"/>
+    <!--<include file="$(find vehicle_core)/launch/pilot_sim.launch"/>-->
+    <include file="$(find vehicle_core)/launch/thruster_wrapper.launch"/>
+    <include file="$(find ros_simple_rl)/launch/logging_only.launch"/>
+
+    <!-- Load a robot model should RVIZ be used -->
+    <!--<param name="robot_description" command="cat $(find osl_uwsim_scenario)/sim/robot/nessie.urdf"/>-->
+
+</launch>
