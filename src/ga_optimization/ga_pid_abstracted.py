@@ -21,11 +21,20 @@ from moving_differentiator import SlidingWindow
 from ga import *
 
 CONFIG = {
-    "num_generations": 50,
+    "num_repetitions": 4,
+    "num_generations": 15,
     "run_time": 15,
     "sol_per_pop": 8,   # was 8
     "num_parents_mating": 4
 }
+# Short test setup
+# CONFIG = {
+#     "num_repetitions": 5,
+#     "num_generations": 2,
+#     "run_time": 15,
+#     "sol_per_pop": 4,   # was 8
+#     "num_parents_mating": 2
+# }
 
 
 class GAOptimizer(object):
@@ -184,8 +193,8 @@ class GAOptimizer(object):
 
 
 class PilotPidProcess(object):
-    def __init__(self, results_parent):
-        self.results_dir = results_parent
+    def __init__(self, results_parent_dir):
+        self.results_dir = results_parent_dir
         self.position_normaliser = DynamicNormalizer([-2.4, 2.4], [-1.0, 1.0])
         self.position_deriv_normaliser = DynamicNormalizer([-1.75, 1.75], [-1.0, 1.0])
         self.angle_normaliser = DynamicNormalizer([-3.14, 3.14], [-1.0, 1.0])
@@ -330,18 +339,20 @@ if __name__ == '__main__':
 
     args = sys.argv
     if "-r" in args:
-        results_dir_name = args[args.index("-r") + 1]
+        results_dir_prefix = args[args.index("-r") + 1]
     else:
-        results_dir_name = "ga_pid_tuning"
-    results_dir = "/home/gordon/data/tmp/{0}{1}".format(results_dir_name, 0)
+        results_dir_prefix = "ga_pid_tuning"
 
-    if not os.path.exists(results_dir):
-        os.makedirs(results_dir)
-    filename = os.path.basename(sys.argv[0])
-    os.system("cp {0} {1}".format(filename, results_dir))
-    os.system("cp /home/gordon/rosbuild_ws/ros_simple_rl/src/ga_optimization/ga.py {0}".format(
-        results_dir))
+    for run in range(CONFIG["num_repetitions"]):
+        indexed_results_dir = "/home/gordon/data/tmp/{0}{1}".format(results_dir_prefix, run)
 
-    process = PilotPidProcess(results_dir)
-    pilot = GAOptimizer(results_dir, process)
-    pilot.run()
+        if not os.path.exists(indexed_results_dir):
+            os.makedirs(indexed_results_dir)
+        filename = os.path.basename(sys.argv[0])
+        os.system("cp {0} {1}".format(filename, indexed_results_dir))
+        os.system("cp /home/gordon/rosbuild_ws/ros_simple_rl/src/ga_optimization/ga.py {0}".format(
+            indexed_results_dir))
+
+        process = PilotPidProcess(indexed_results_dir)
+        pilot = GAOptimizer(indexed_results_dir, process)
+        pilot.run()
