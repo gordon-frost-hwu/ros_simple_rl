@@ -21,7 +21,7 @@ from moving_differentiator import SlidingWindow
 from ga import *
 
 CONFIG = {
-    "num_repetitions": 4,
+    "num_repetitions": 5,
     "num_generations": 15,
     "run_time": 15,
     "sol_per_pop": 8,   # was 8
@@ -53,17 +53,24 @@ class GAOptimizer(object):
 
         self.baseline_response = optimal_control_response()
 
+    def seed_population(self, solutions_per_population, num_weights):
+        population_shape = (solutions_per_population, num_weights)
+        # population = np.random.uniform(low=0.0, high=0.1, size=population_shape)
+        position_weights = np.random.uniform(low=0.0, high=0.1, size=(solutions_per_population, 2))
+        velocity_weights = np.random.uniform(low=0.0, high=25, size=(solutions_per_population, 2))
+        population = np.concatenate((position_weights, velocity_weights), axis=1)
+        return population
+
     def run(self):
         # Inputs of the equation.
-        ga_state = [0.5, 0.0]
+        ga_state = [0.5, 0.0, 10.0, 0.0]
 
         # Preparing the population
         # Number of the weights we are looking to optimize.
         ga_num_weights = len(ga_state)
 
-        pop_size = (CONFIG["sol_per_pop"], ga_num_weights)
+        population = self.seed_population(CONFIG["sol_per_pop"], ga_num_weights)
 
-        population = np.random.uniform(low=0.0, high=0.1, size=pop_size)
         f_generation_max = open("{0}{1}".format(self.results_dir, "/generation_history.csv"), "w", 1)
         global_individual_id = 0
         # TODO - loop generations
@@ -103,7 +110,9 @@ class GAOptimizer(object):
                 gen_row[0] = [global_individual_id] if not match_found else [first_occurance_idx]
                 gen_row[1] = [individual_copy[0]]
                 gen_row[2] = [individual_copy[1]]
-                gen_row[3] = [individual_fitness]
+                gen_row[3] = [individual_copy[2]]
+                gen_row[4] = [individual_copy[3]]
+                gen_row[5] = [individual_fitness]
                 print("Row being added to generation_df: ")
                 print(gen_row)
                 generation_df = generation_df.append(gen_row, ignore_index=True)
@@ -115,7 +124,9 @@ class GAOptimizer(object):
                 evolution_row[0] = [global_individual_id]
                 evolution_row[1] = [individual_copy[0]]
                 evolution_row[2] = [individual_copy[1]]
-                evolution_row[3] = [individual_fitness]
+                evolution_row[3] = [individual_copy[2]]
+                evolution_row[4] = [individual_copy[3]]
+                evolution_row[5] = [individual_fitness]
                 self.df_evolution_history = self.df_evolution_history.append(evolution_row, ignore_index=True)
                 # print("DataFrame Evolution History: {0}".format(global_individual_id))
                 # print(self.df_evolution_history)
@@ -156,7 +167,8 @@ class GAOptimizer(object):
             print(parents)
 
             offspring_crossover = crossover(parents,
-                                            offspring_size=(pop_size[0] - parents.shape[0], ga_num_weights))
+                                            offspring_size=(CONFIG["sol_per_pop"] - CONFIG["num_parents_mating"],
+                                                            ga_num_weights))
 
             print("offspring_crossover: {0}".format(offspring_crossover))
             offspring_mutation = mutation(offspring_crossover, num_mutations=2)
@@ -257,10 +269,13 @@ class PilotPidProcess(object):
         rospy.set_param("/pilot/controller/pos_n/kp", float(posP))
         rospy.set_param("/pilot/controller/pos_n/ki", float(posI))
         rospy.set_param("/pilot/controller/pos_n/kd", float(posD))
-        # rospy.set_param("/pilot/controller/vel_r/kp", str(velP))
-        # rospy.set_param("/pilot/controller/vel_r/ki", str(velI))
-        # rospy.set_param("/pilot/controller/vel_r/kd", str(velD))
+        rospy.set_param("/pilot/controller/vel_r/kp", float(velP))
+        rospy.set_param("/pilot/controller/vel_r/ki", float(velI))
+        rospy.set_param("/pilot/controller/vel_r/kd", float(velD))
         self.env.enable_pilot(True)
+        self.env.enable_pilot(False)
+        self.env.enable_pilot(True)
+
     def calculate_fitness(self, response):
         diff = abs(response) - abs(self.baseline_response)
         max_idx = 100   # response.shape[0]
@@ -285,14 +300,15 @@ class PilotPidProcess(object):
         # Set usable gains for DoHover action to get to initial position again
         # position sim gains: { "kp": 0.35, "ki": 0.0, "kd": 0.0 }
         # velocity sim gains: { "kp": 35.0, "ki": 0.0, "kd": 0.0 }
-        self.setPidGains(0.35, 0, 0, 0, 0, 0)
+        self.setPidGains(0.35, 0, 0, 35.0, 0, 0)
+        rospy.sleep(1)
         self.env.reset(disable_behaviours=False)
         self.angle_dt_moving_window.reset()
         self.prev_angle_dt_t = 0.0
         self.prev_angle_dt_tp1 = 0.0
 
         # Set the gains to those of the individual/solution
-        self.setPidGains(individual[0], 0, individual[1], 0, 0, 0)
+        self.setPidGains(individual[0], 0, individual[1], individual[2], 0, individual[3])
 
         # create log file
         f_actions = open("{0}{1}".format(self.results_dir, "/actions{0}.csv".format(id)), "w", 1)
