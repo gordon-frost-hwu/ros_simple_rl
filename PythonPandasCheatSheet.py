@@ -42,3 +42,6 @@ df = pd.read_csv('evolution_history.csv', delimiter='\t', header=None)
 
 # get statistics for columns in DataFrame
 df.describe()
+
+# get a numpy array of the DataFrame
+df.values
