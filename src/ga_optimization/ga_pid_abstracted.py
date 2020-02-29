@@ -21,8 +21,8 @@ from moving_differentiator import SlidingWindow
 from ga import *
 
 CONFIG = {
-    "num_repetitions": 5,
-    "num_generations": 15,
+    "num_repetitions": 1,
+    "num_generations": 5000,
     "run_time": 15,
     "sol_per_pop": 8,   # was 8
     "num_parents_mating": 4
@@ -57,8 +57,10 @@ class GAOptimizer(object):
         population_shape = (solutions_per_population, num_weights)
         # population = np.random.uniform(low=0.0, high=0.1, size=population_shape)
         position_weights = np.random.uniform(low=0.0, high=0.1, size=(solutions_per_population, 2))
-        velocity_weights = np.random.uniform(low=0.0, high=25, size=(solutions_per_population, 2))
-        population = np.concatenate((position_weights, velocity_weights), axis=1)
+        velocity_weights_p = np.random.uniform(low=20.0, high=25, size=(solutions_per_population, 1))
+        velocity_weights_d = np.random.uniform(low=0.0, high=0.1, size=(solutions_per_population, 1))
+        population = np.concatenate((position_weights, velocity_weights_p), axis=1)
+        population = np.concatenate((population, velocity_weights_d), axis=1)
         return population
 
     def run(self):
@@ -171,7 +173,10 @@ class GAOptimizer(object):
                                                             ga_num_weights))
 
             print("offspring_crossover: {0}".format(offspring_crossover))
-            offspring_mutation = mutation(offspring_crossover, num_mutations=2)
+            # offspring_mutation = mutation(offspring_crossover, num_mutations=2)
+            offspring_mutation = mutGaussian(offspring_crossover, [0, 0, 0, 0],
+                                                                 [0.1, 0.1, 5, 0.1],
+                                                                 [0.5, 0.3, 0.5, 0.3])
 
             # Creating the new population based on the parents and offspring.
             population[0:parents.shape[0], :] = parents
