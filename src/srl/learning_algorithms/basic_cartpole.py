@@ -6,10 +6,6 @@ import time
 import os
 
 from copy import deepcopy
-from srl.useful_classes.angle_between_vectors import AngleBetweenVectors
-from srl.basis_functions.simple_basis_functions import RBFBasisFunctions as BasisFunctions
-
-from srl.approximators.linear_approximation import LinearApprox
 from srl.approximators.ann_approximator_from_scratch import ANNApproximator
 from srl.useful_classes.rl_traces import Traces, TrueTraces
 
@@ -84,17 +80,17 @@ class CartPoleSimulation(object):
         self.last_action_greedy = None
 
     def update_critic(self, reward):
-        state_t_value = self.approx_critic.computeOutput(self.state_t.values())
-        state_t_p1_value = self.approx_critic.computeOutput(self.state_t_plus_1.values())
+        state_t_value = self.approx_critic.computeOutput(list(self.state_t.values()))
+        state_t_p1_value = self.approx_critic.computeOutput(list(self.state_t_plus_1.values()))
 
         if CONFIG["critic algorithm"] == "ann_trad":
             td_error = reward + (CONFIG["gamma"] * state_t_p1_value) - state_t_value
         elif CONFIG["critic algorithm"] == "ann_true":
             td_error = reward + (CONFIG["gamma"] * state_t_p1_value) - \
-            self.approx_critic.computeOutputThetaMinusOne(self.state_t.values())
+            self.approx_critic.computeOutputThetaMinusOne(list(self.state_t.values()))
         prev_critic_weights = self.approx_critic.getParams()
-        critic_gradient = self.approx_critic.calculateGradient(self.state_t.values())
-        self.traces_policy.updateTrace(self.approx_policy.calculateGradient(self.state_t.values()), 1.0)
+        critic_gradient = self.approx_critic.calculateGradient(list(self.state_t.values()))
+        self.traces_policy.updateTrace(self.approx_policy.calculateGradient(list(self.state_t.values())), 1.0)
 
         p = self.approx_critic.getParams()
         if CONFIG["critic algorithm"] == "ann_trad":
@@ -110,7 +106,7 @@ class CartPoleSimulation(object):
             self.traces_critic.updateTrace(critic_gradient)    # for True TD(lambda)
             part_1 = td_error * self.traces_critic.e
             part_2 = critic_config["alpha"] * \
-                    np.dot((self.approx_critic.computeOutputThetaMinusOne(self.state_t.values()) - state_t_value), critic_gradient)
+                    np.dot((self.approx_critic.computeOutputThetaMinusOne(list(self.state_t.values())) - state_t_value), critic_gradient)
             p += part_1 + part_2
         
         self.approx_critic.setParams(p)
@@ -155,7 +151,7 @@ class CartPoleSimulation(object):
         if UPDATE_CONDITION:
             # get original values
             params = self.approx_policy.getParams()
-            old_action = self.approx_policy.computeOutput(self.state_t.values())
+            old_action = self.approx_policy.computeOutput(list(self.state_t.values()))
             policy_gradient = self.approx_policy.calculateGradient()
 
             # now update
@@ -228,8 +224,8 @@ class CartPoleSimulation(object):
                     # Update the state for timestep t
                     self.update_state_t()
                     
-                    action_t_greedy = self.approx_policy_greedy.computeOutput(self.state_t_greedy.values())
-                    action_t_deterministic = self.approx_policy.computeOutput(self.state_t.values())
+                    action_t_greedy = self.approx_policy_greedy.computeOutput(list(self.state_t_greedy.values()))
+                    action_t_deterministic = self.approx_policy.computeOutput(list(self.state_t.values()))
                     if step_number % 5 == 0:
                         exploration = np.random.normal(0.0, CONFIG["exploration_sigma"])
                     action_t = np.clip(action_t_deterministic + exploration, -10, 10)
@@ -252,13 +248,13 @@ class CartPoleSimulation(object):
                     # Always log the greedy actions
                     if episode_number % CONFIG["log_actions"] == 0:
                         if step_number == 0:
-                            state_keys = self.state_t_greedy.keys()
+                            state_keys = list(self.state_t_greedy.keys())
                             state_keys.append("action")
                             label_logging_format = "#{" + "}\t{".join(
                                 [str(state_keys.index(el)) for el in state_keys]) + "}\n"
                             f_actions_greedy.write(label_logging_format.format(*state_keys))
 
-                        logging_list = self.state_t_greedy.values()
+                        logging_list = list(self.state_t_greedy.values())
                         logging_list.append(action_t_greedy)
 
                         action_logging_format = "{" + "}\t{".join(
@@ -275,7 +271,7 @@ class CartPoleSimulation(object):
                         # only log the learning actions whilst learning
                         if episode_number % CONFIG["log_actions"] == 0:
                             if step_number == 0:
-                                state_keys = self.state_t.keys()
+                                state_keys = list(self.state_t.keys())
                                 state_keys.append("exploration")
                                 state_keys.append("reward")
                                 state_keys.append("tde")
@@ -287,7 +283,7 @@ class CartPoleSimulation(object):
                                     [str(state_keys.index(el)) for el in state_keys]) + "}\n"
                                 f_actions.write(label_logging_format.format(*state_keys))
 
-                            logging_list = self.state_t.values()
+                            logging_list = list(self.state_t.values())
                             logging_list.append(exploration)
                             logging_list.append(reward)
                             logging_list.append(td_error)

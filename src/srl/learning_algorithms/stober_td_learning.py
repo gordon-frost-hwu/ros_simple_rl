@@ -55,7 +55,7 @@ class TD(object):
             for (previous, action, reward, state, next_action) in t:
                 self.train(previous, reward, state)
             if verbose:
-                print i
+                print(i)
 
     def reset(self):
         self.traces = np.zeros(self.nstates)
