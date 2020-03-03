@@ -14,14 +14,6 @@ CONFIG = {
     "sol_per_pop": 8,   # was 8
     "num_parents_mating": 4
 }
-# Short test setup
-# CONFIG = {
-#     "num_repetitions": 5,
-#     "num_generations": 2,
-#     "run_time": 15,
-#     "sol_per_pop": 4,   # was 8
-#     "num_parents_mating": 2
-# }
 
 if __name__ == '__main__':
     rospy.init_node("ga_pid_optimization")

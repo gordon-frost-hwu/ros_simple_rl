@@ -24,7 +24,7 @@ class CartPoleEnvironment(object):
     mc = 1.0
     dt = 0.02
 
-    randomInitialization = True
+    randomInitialization = False
 
     def __init__(self, polelength=None):
         if polelength != None:
@@ -49,17 +49,17 @@ class CartPoleEnvironment(object):
         self.action = action
         self._step()
 
-    def getReward(self):
+    def getReward(self, u_diff):
         episode_ended = self.episodeEnded()
         #print("penalty: {0}".format(penalty))
         if episode_ended:
             return -1.0
         else:
-            return 1.0
+            return 1.0 - (u_diff / 20.0)**2
 
     def episodeEnded(self):
-        if abs(self.sensors[0]) > 0.20944 or abs(self.sensors[2]) > 2.4:
-            #print("POLE FALLEN or CART POSITION WRONG")
+        if abs(self.sensors[0]) > 3.14/15.0 or abs(self.sensors[2]) > 2.4:
+            # print("POLE FALLEN or CART POSITION WRONG")
             return True
         else:
             return False

@@ -23,7 +23,7 @@ from moving_differentiator import SlidingWindow
 actor_config = {
     "approximator_name": "policy",
     "initial_value": 0.0,
-    "alpha": 0.002,
+    "alpha": 0.001,
     "random_weights": False,
     "minimise": False,
     "approximator_boundaries": [-200.0, 200.0],
@@ -37,7 +37,7 @@ actor_config = {
 critic_config = {
     "approximator_name": "value-function",
     "initial_value": 0.0,
-    "alpha": 0.003,
+    "alpha": 0.0001,
     "random_weights": False,
     "minimise": False,
     "approximator_boundaries": [-200.0, 200.0],
@@ -49,7 +49,7 @@ CONFIG = {
     "log_actions": 10,
     "log_traces": False,
     "spin_rate": 200,
-    "num_runs": 50,
+    "num_runs": 5,
     "num_episodes": 2000,
     "max_num_steps": 2000,
     "policy_type": "ann",
@@ -57,12 +57,13 @@ CONFIG = {
     "critic algorithm": "ann_true",
     "sparse reward": False,
     "gamma": 0.98,   # was 0.1
-    "lambda": 0.2,  # was 0.0
+    "lambda": 0.0,  # was 0.0
     "alpha_decay": 0.0, # was 0.00005
-    "exploration_sigma": 5.0,
+    "exploration_sigma": 2,
     "exploration_decay": 1.0,
     "min_trace_value": 0.1
 }
+
 
 class CartPoleSimulation(object):
     def __init__(self):
@@ -79,6 +80,8 @@ class CartPoleSimulation(object):
 
         self.angle_dt_moving_window = SlidingWindow(5)
         self.last_150_episode_returns = SlidingWindow(150)
+        self.last_action = None
+        self.last_action_greedy = None
 
     def update_critic(self, reward):
         state_t_value = self.approx_critic.computeOutput(self.state_t.values())
@@ -111,29 +114,29 @@ class CartPoleSimulation(object):
             p += part_1 + part_2
         
         self.approx_critic.setParams(p)
-        return (td_error, critic_gradient)
+        return td_error, critic_gradient, state_t_value, state_t_p1_value
 
     def update_state_t(self):
-        sensors = self.env.getSensors()
+        sensors = deepcopy(self.env.getSensors())
         self.state_t = {"angle": self.angle_normaliser.scale_value(sensors[0]),
                         "angle_deriv": self.angle_deriv_normaliser.scale_value(sensors[1]),
                         "position": self.position_normaliser.scale_value(sensors[2]),
                         "position_deriv": self.position_deriv_normaliser.scale_value(sensors[3])}
 
-        sensors_greedy = self.env_greedy.getSensors()
+        sensors_greedy = deepcopy(self.env_greedy.getSensors())
         self.state_t_greedy = {"angle": self.angle_normaliser.scale_value(sensors_greedy[0]),
                                 "angle_deriv": self.angle_deriv_normaliser.scale_value(sensors_greedy[1]),
                                 "position": self.position_normaliser.scale_value(sensors_greedy[2]),
                                 "position_deriv": self.position_deriv_normaliser.scale_value(sensors_greedy[3])}
 
     def update_state_t_p1(self):
-        sensors_t_plus_1 = self.env.getSensors()
+        sensors_t_plus_1 = deepcopy(self.env.getSensors())
         self.state_t_plus_1 = {"angle": self.angle_normaliser.scale_value(sensors_t_plus_1[0]),
                             "angle_deriv": self.angle_deriv_normaliser.scale_value(sensors_t_plus_1[1]),
                             "position": self.position_normaliser.scale_value(sensors_t_plus_1[2]),
                             "position_deriv": self.position_deriv_normaliser.scale_value(sensors_t_plus_1[3])}
 
-        sensors_t_plus_1_greedy = self.env_greedy.getSensors()
+        sensors_t_plus_1_greedy = deepcopy(self.env_greedy.getSensors())
         self.state_t_plus_1_greedy = {"angle": self.angle_normaliser.scale_value(sensors_t_plus_1_greedy[0]),
                                     "angle_deriv": self.angle_deriv_normaliser.scale_value(sensors_t_plus_1_greedy[1]),
                                     "position": self.position_normaliser.scale_value(sensors_t_plus_1_greedy[2]),
@@ -227,28 +230,33 @@ class CartPoleSimulation(object):
                     
                     action_t_greedy = self.approx_policy_greedy.computeOutput(self.state_t_greedy.values())
                     action_t_deterministic = self.approx_policy.computeOutput(self.state_t.values())
-                    exploration = np.random.normal(0.0, CONFIG["exploration_sigma"])
-                    action_t =  np.clip(action_t_deterministic + exploration, -10, 10)
-                    
+                    if step_number % 5 == 0:
+                        exploration = np.random.normal(0.0, CONFIG["exploration_sigma"])
+                    action_t = np.clip(action_t_deterministic + exploration, -10, 10)
+
+                    self.env.performAction(action_t)
+                    self.env_greedy.performAction(action_t_greedy)
+
+                    # Update the state for timestep t + 1, after action is performed
+                    self.update_state_t_p1()
+
+                    if self.last_action is None:
+                        self.last_action = action_t
+                    if self.last_action_greedy is None:
+                        self.last_action_greedy = action_t_greedy
+                    action_diff = self.last_action - action_t_deterministic
+                    reward = self.env.getReward(action_diff)
+                    # print("action {0} reward: {1}".format(action_t, reward))
+                    self.last_action = deepcopy(action_t_deterministic)
+
+                    # Always log the greedy actions
                     if episode_number % CONFIG["log_actions"] == 0:
                         if step_number == 0:
-                            state_keys = self.state_t.keys()
-                            state_keys.append("action")
-                            label_logging_format = "#{" + "}\t{".join(
-                                [str(state_keys.index(el)) for el in state_keys]) + "}\n"
-                            f_actions.write(label_logging_format.format(*state_keys))
-
                             state_keys = self.state_t_greedy.keys()
                             state_keys.append("action")
                             label_logging_format = "#{" + "}\t{".join(
                                 [str(state_keys.index(el)) for el in state_keys]) + "}\n"
                             f_actions_greedy.write(label_logging_format.format(*state_keys))
-
-                        logging_list = self.state_t.values()
-                        logging_list.append(action_t_deterministic)
-                        action_logging_format = "{" + "}\t{".join(
-                            [str(logging_list.index(el)) for el in logging_list]) + "}\n"
-                        f_actions.write(action_logging_format.format(*logging_list))
 
                         logging_list = self.state_t_greedy.values()
                         logging_list.append(action_t_greedy)
@@ -257,28 +265,46 @@ class CartPoleSimulation(object):
                             [str(logging_list.index(el)) for el in logging_list]) + "}\n"
                         f_actions_greedy.write(action_logging_format.format(*logging_list))
 
-
-                    self.env.performAction(action_t)
-                    self.env_greedy.performAction(action_t_greedy)
-
-                    # Update the state for timestep t + 1, after action is performed
-                    self.update_state_t_p1()
-
-                    reward = self.env.getReward()
-                    
                     if not episode_ended_learning:
                         # ---- Critic Update ----
-                        (td_error, critic_gradient) = self.update_critic(reward)
+                        (td_error, critic_gradient, state_t_value, state_tp1_value) = self.update_critic(reward)
 
                         # ---- Policy Update -------
                         self.update_policy(td_error, exploration)
+
+                        # only log the learning actions whilst learning
+                        if episode_number % CONFIG["log_actions"] == 0:
+                            if step_number == 0:
+                                state_keys = self.state_t.keys()
+                                state_keys.append("exploration")
+                                state_keys.append("reward")
+                                state_keys.append("tde")
+                                state_keys.append("st")
+                                state_keys.append("stp1")
+                                state_keys.append("explore_action")
+                                state_keys.append("action")
+                                label_logging_format = "#{" + "}\t{".join(
+                                    [str(state_keys.index(el)) for el in state_keys]) + "}\n"
+                                f_actions.write(label_logging_format.format(*state_keys))
+
+                            logging_list = self.state_t.values()
+                            logging_list.append(exploration)
+                            logging_list.append(reward)
+                            logging_list.append(td_error)
+                            logging_list.append(state_t_value)
+                            logging_list.append(state_tp1_value)
+                            logging_list.append(action_t)
+                            logging_list.append(action_t_deterministic)
+                            action_logging_format = "{" + "}\t{".join(
+                                [str(logging_list.index(el)) for el in logging_list]) + "}\n"
+                            f_actions.write(action_logging_format.format(*logging_list))
 
                         prev_critic_gradient = deepcopy(critic_gradient)
                     
                         reward_cum += reward
                     if not episode_ended_greedy:
-                        reward_cum_greedy += self.env_greedy.getReward()
-
+                        reward_cum_greedy += self.env_greedy.getReward(action_t_greedy - self.last_action_greedy)
+                    self.last_action_greedy = deepcopy(action_t_greedy)
                     episode_ended_learning = self.env.episodeEnded()
                     episode_ended_greedy = self.env_greedy.episodeEnded()
 

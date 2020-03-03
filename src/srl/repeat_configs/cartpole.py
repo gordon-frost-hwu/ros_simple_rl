@@ -53,7 +53,7 @@ class CartPoleEnvironment(object):
     def getReward(self):
         episode_ended = self.episodeEnded()
         if episode_ended:
-            return 0.0
+            return -1.0
         else:
             return 1.0
             # return gaussian1D(self.getPoleAngles()[0], 0.0, 1.0, 0.1)# + gaussian1D(self.getCartPosition(), 0.0, 0.5, 1.0)
@@ -82,7 +82,7 @@ class CartPoleEnvironment(object):
             pos = 0.0
         else:
             angle = -0.05
-            pos = 0.05
+            pos = 0.1
         self.sensors = (angle, 0.0, pos, 0.0)
 
     def _derivs(self, x, t):
