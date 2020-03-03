@@ -1,16 +1,15 @@
 #! /usr/bin/env python
 """ This module provides a function which takes the sum of N gaussian distributions """
-import roslib;roslib.load_manifest("ros_simple_rl")
-import rospy
+# import roslib;roslib.load_manifest("ros_simple_rl")
 import numpy as np
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 from matplotlib import cm
 import sys
-from rospkg import RosPack
+# from rospkg import RosPack
 from math import log, sqrt
 from load_goals import load_goals
-rospack = RosPack()
+# rospack = RosPack()
 
 SCALE_OUTPUT = False
 
