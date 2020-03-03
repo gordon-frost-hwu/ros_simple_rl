@@ -30,7 +30,7 @@ class Data(object):
         self.q_moving_avg = []
 
     def loadTables(self, directory, OLD_DATA=False):
-        print "Results of: ", directory
+        print("Results of: {0}".format(directory))
         if not OLD_DATA:
             q_table_file_path = directory + "q_tables.txt"
             q_table_file = open(q_table_file_path, 'r')
@@ -39,7 +39,7 @@ class Data(object):
                 if len(table) != 0:
                     self.qtables.append(pickle.loads(table))
 
-            #print "Last Table is: ", self.qtables[-1]
+            #print("Last Table is: {0}".format(self.qtables[-1]))
 
             n_table_file_path = directory + "n_tables.txt"
             n_table_file = open(n_table_file_path, 'r')
@@ -66,12 +66,12 @@ class Data(object):
     def pruneTables(self, desired_num_episodes):
         number_to_prune = self.qtables_length - desired_num_episodes
         if desired_num_episodes != self.qtables_length:
-            print "     Pruning the tables to length: %s" % desired_num_episodes
+            print("     Pruning the tables to length: %s" % desired_num_episodes)
             for i in range(number_to_prune):
                 self.qtables.pop()
                 self.ntables.pop()
         else:
-            print "     Requested number of episodes is more than data set, proceeding!"
+            print("     Requested number of episodes is more than data set, proceeding!")
         self.qtables_length = len(self.qtables)
         self.ntables_length = len(self.ntables)
 
@@ -92,7 +92,7 @@ class Data(object):
 
     def analyseQ(self):
         def compare(x, i):
-            #print "x: %s, i: %s" % (x, i)
+            #print("x: %s, i: %s" % (x, i)
             curr_q = x
             prev_q = self.qtables[i-1]
             Qtable_array = np.array(curr_q)
@@ -107,7 +107,7 @@ class Data(object):
                 np_array = np.array(self.q_moving_avg)
                 moving_avg = np_array.sum()/len(np_array)
                 if moving_avg < 0.15:
-                    print "Comparison Num: %s; val: %s" % (self.tmp_count, np_array)
+                    print("Comparison Num: %s; val: %s" % (self.tmp_count, np_array))
                 self.q_moving_avg = []
             self.tmp_count += 1
             value = val + self.q_offset
@@ -126,7 +126,7 @@ class Data(object):
             if total_unobserved_count != 0:
                 s_a_space_size = (len(x)*len(x[0]))-NUM_ILLEGAL_SA_PAIRS
             num_visited = s_a_space_size-(total_unobserved_count- NUM_ILLEGAL_SA_PAIRS)
-            #print "Explored %s State-Action pairs out of %s" % (num_visited, s_a_space_size)
+            #print("Explored %s State-Action pairs out of %s" % (num_visited, s_a_space_size)
 
             self.num_s_a_visited.append(num_visited)
             curr_q = x
@@ -136,7 +136,7 @@ class Data(object):
 
             val = self.normDifference(Qtable_array, Qtable_prev_array)
             value = val + self.n_offset
-            #print "val: %s, offset_n: %s, gives value: %s" % (val, offset_n, value)
+            #print("val: %s, offset_n: %s, gives value: %s" % (val, offset_n, value)
             self.n_offset = copy.copy(value)
             return value
 
@@ -153,9 +153,9 @@ class Data(object):
 
         tmp_array = np.array(self.num_s_a_visited)
         self.percentage_visited = (tmp_array / float(s_a_space_size)).tolist()
-        #print "Percentage Visited List: "
+        #print("Percentage Visited List: "
         #print self.percentage_visited
-        print "     Explored %s State-Action pairs out of %s = %.4s percent" % (num_visited, s_a_space_size, self.percentage_visited[-1])
+        print("     Explored %s State-Action pairs out of %s = %.4s percent" % (num_visited, s_a_space_size, self.percentage_visited[-1]))
 
     def plotData(self, colour, xlim):
         plt.figure()
@@ -185,7 +185,7 @@ class Data(object):
         percent = ','.join(map(str, self.percentage_visited))
         q_diff = ','.join(map(str, self.q_variance))
         name = input_path.split("/")
-        print "Split name: %s" % name
+        print("Split name: %s" % name)
         name = name[-2]
 
         with open(output_path+name+"_percentage_visited.csv", "w") as f:
@@ -235,9 +235,9 @@ if __name__ == '__main__':
     for data in input_data:
         data_object = Data()
         data_object.loadTables(data[0])
-        print "     Length of Tables originally: ", data_object.qtables_length
+        print("     Length of Tables originally: {0}".format(data_object.qtables_length))
         data_object.pruneTables(20)
-        print "     Length of tables after pruning: ", data_object.qtables_length
+        print("     Length of tables after pruning: {0}".format(data_object.qtables_length))
         data_object.analyseN()
         data_object.analyseQ()
         if show_results:

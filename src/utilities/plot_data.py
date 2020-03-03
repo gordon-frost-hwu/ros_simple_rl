@@ -101,8 +101,8 @@ cumulative_step = []
 for step in steps:
 	total_num_steps += step
 	
-print "Total Number of Steps: ", total_num_steps
-print "Total Time of Simulation: ", total_time/60, " minutes"
+print("Total Number of Steps: {0}".format(total_num_steps))
+print("Total Time of Simulation: {0} minutes".format(total_time/60))
 
 #~ print "Steps: ", steps
 #~ print "-------------------"

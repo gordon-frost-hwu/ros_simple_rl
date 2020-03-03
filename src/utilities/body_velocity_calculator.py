@@ -98,7 +98,7 @@ class BodyVelocityCalculator(Nav):
             self.rviz_points_array(pose)
 
     def rviz_points_array(self, point, draw_arrows=True):
-        #print "RVIZ_POINTS_ARRAY: Contents of point: ", point
+        #print("RVIZ_POINTS_ARRAY: Contents of point: ", point)
         # Create the Spheres representing the waypoints
         self.wp_spheremarkerArray = MarkerArray()
         self.wp_spheremarker = Marker()

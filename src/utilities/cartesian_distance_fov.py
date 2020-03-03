@@ -65,7 +65,7 @@ class CartesianDistanceFov(object):
         return isVisible
 
     def loop(self):
-        print "--------------"
+        print("--------------")
         distance_to_goal = self.calcDistance()
 
         # Check to see whether the goal is in the FOV of the FFS
@@ -75,8 +75,8 @@ class CartesianDistanceFov(object):
             distance_to_goal = 0
             print("GOAL NOT IN VIEW!!")
         else:
-            print "Distance to Goal Object: ", distance_to_goal
+            print("Distance to Goal Object: ", distance_to_goal)
 
         # Publish the distances and visible data to anyone who is interested
         #self.pub.publish(distance_to_goal)
-        print "@@@@@@@@@@@@@@"
+        print("@@@@@@@@@@@@@@")

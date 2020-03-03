@@ -74,7 +74,7 @@ if __name__=='__main__':
     rate = rospy.Rate(10)
 
     while not rospy.is_shutdown():
-        print "--------------"
+        print("--------------")
         print(GOAL_POSITIONS)
         # Create a list of Goals msg types, 1 for each goal position
         #goal_data = [Goals() for goal in GOAL_POSITIONS]

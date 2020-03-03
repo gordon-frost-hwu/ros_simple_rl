@@ -113,7 +113,7 @@ if __name__== '__main__':
         Y = np.arange(0, 20, PLOTTING_GRID_RESOLUTION)
         X, Y = np.meshgrid(X, Y)
         print("X in input (1st row only):\n%s" % X[0])
-        print "----"
+        print("----")
         print("Y in input (1st row only):\n%s" % Y[0])
         # R = np.sqrt(X**2 + Y**2)
         # Z = np.sin(R)
@@ -145,7 +145,7 @@ if __name__== '__main__':
         Y = np.arange(-3.14, 3.14, PLOTTING_GRID_RESOLUTION)
         X, Y = np.meshgrid(X, Y)
         print("X in input (1st row only):\n%s" % X[0])
-        print "----"
+        print("----")
         print("Y in input (1st row only):\n%s" % Y[0])
         # R = np.sqrt(X**2 + Y**2)
         # Z = np.sin(R)
