@@ -169,7 +169,6 @@ class CartPoleSimulation(object):
                 self.approx_policy.setParams(params + actor_config["alpha"] * (policy_gradient * td_error))
                 self.approx_policy_greedy.setParams(params + actor_config["alpha"] * (policy_gradient * td_error))
 
-
     def run(self):
         # Loop number of runs
         for run in range(CONFIG["num_runs"]):
@@ -322,7 +321,3 @@ class CartPoleSimulation(object):
 if __name__ == '__main__':
     agent = CartPoleSimulation()
     agent.run()
-
-        
-
-        
