@@ -1,0 +1,300 @@
+#! /usr/bin/python
+import numpy as np
+
+import sys
+import time
+import os
+
+from copy import deepcopy
+from srl.approximators.ann_approximator_from_scratch import ANNApproximator
+from srl.useful_classes.rl_traces import Traces, TrueTraces
+
+from variable_normalizer import DynamicNormalizer
+from moving_differentiator import SlidingWindow
+
+import gym
+from gym import wrappers, logger
+
+actor_config = {
+    "approximator_name": "policy",
+    "initial_value": 0.0,
+    "alpha": 0.001,
+    "random_weights": False,
+    "minimise": False,
+    "approximator_boundaries": [-200.0, 200.0],
+    "num_input_dims": 3,
+    "num_hidden_units": 25
+    # "basis_functions": Fourier(FourierDomain(), order=5)
+    # "basis_functions": TileCodingBasis(2, [[-1.2, 0.6], [-0.07, 0.07]], 64, 128)
+    # "basis_functions": BasisFunctions()
+}
+
+critic_config = {
+    "approximator_name": "value-function",
+    "initial_value": 0.0,
+    "alpha": 0.002,
+    "random_weights": False,
+    "minimise": False,
+    "approximator_boundaries": [-200.0, 200.0],
+    "num_input_dims": 3,
+    "rbf_basis_resolution": 20,
+    "rbf_basis_scalar": 15.0,
+}
+CONFIG = {
+    "log_actions": 1,
+    "log_traces": False,
+    "num_runs": 5,
+    "num_episodes": 1000,
+    "max_num_steps": 500,
+    "policy_type": "ann",
+    "actor update rule": "cacla",
+    "critic algorithm": "ann_true",
+    "sparse reward": False,
+    "gamma": 0.98,   # was 0.1
+    "lambda": 0.5,  # was 0.0
+    "alpha_decay": 0.0, # was 0.00005
+    "exploration_sigma": 0.2,
+    "exploration_decay": 1.0,
+    "min_trace_value": 0.1
+}
+
+
+class CartPoleSimulation(object):
+    def __init__(self):
+        args = sys.argv
+        if "-r" in args:
+            self.results_dir_name = args[args.index("-r") + 1]
+        else:
+            self.results_dir_name = "cartpole_run"
+
+        self.position_normaliser = DynamicNormalizer([-2.4, 2.4], [-1.0, 1.0])
+        self.position_deriv_normaliser = DynamicNormalizer([-1.75, 1.75], [-1.0, 1.0])
+        self.angle_normaliser = DynamicNormalizer([-0.25944, 0.25944], [-1.0, 1.0])
+        self.angle_deriv_normaliser = DynamicNormalizer([-1.5, 1.5], [-1.0, 1.0])
+
+        self.angle_dt_moving_window = SlidingWindow(5)
+        self.last_150_episode_returns = SlidingWindow(150)
+        self.last_action = None
+        # self.last_action_greedy = None
+
+    def update_critic(self, reward):
+        state_t_value = self.approx_critic.computeOutput(list(self.state_t))
+        state_t_p1_value = self.approx_critic.computeOutput(list(self.state_t_plus_1))
+
+        if CONFIG["critic algorithm"] == "ann_trad":
+            td_error = reward + (CONFIG["gamma"] * state_t_p1_value) - state_t_value
+        elif CONFIG["critic algorithm"] == "ann_true":
+            td_error = reward + (CONFIG["gamma"] * state_t_p1_value) - \
+            self.approx_critic.computeOutputThetaMinusOne(list(self.state_t))
+        prev_critic_weights = self.approx_critic.getParams()
+        critic_gradient = self.approx_critic.calculateGradient(list(self.state_t))
+        self.traces_policy.updateTrace(self.approx_policy.calculateGradient(list(self.state_t)), 1.0)
+
+        p = self.approx_critic.getParams()
+        if CONFIG["critic algorithm"] == "ann_trad":
+            self.traces_critic.updateTrace(critic_gradient, 1.0)  # for standard TD(lambda)
+            X, T = self.traces_critic.getTraces()
+            for x, trace in zip(X, T):
+                # print("updating critic using gradient vector: {0}\t{1}".format(x, trace))
+                p += critic_config["alpha"] * td_error * (x * trace)
+            # self.approx_critic.setParams(prev_critic_weights + CONFIG["critic_config"]["alpha"] * td_error * critic_gradient)
+        elif CONFIG["critic algorithm"] == "ann_true":
+            # For True TD(lambda)
+            #print("UPDATING ANN CRITC with TRUE TD(lambda)")
+            self.traces_critic.updateTrace(critic_gradient)    # for True TD(lambda)
+            part_1 = td_error * self.traces_critic.e
+            part_2 = critic_config["alpha"] * \
+                    np.dot((self.approx_critic.computeOutputThetaMinusOne(list(self.state_t)) - state_t_value), critic_gradient)
+            p += part_1 + part_2
+        
+        self.approx_critic.setParams(p)
+        return td_error, critic_gradient, state_t_value, state_t_p1_value
+
+    def update_policy(self, td_error, exploration):
+        UPDATE_CONDITION = False
+        if CONFIG["actor update rule"] == "cacla":
+            if td_error > 0.0:
+                UPDATE_CONDITION = True
+            else:
+                UPDATE_CONDITION = False
+        elif CONFIG["actor update rule"] == "td lambda":
+            UPDATE_CONDITION = True
+        
+        if UPDATE_CONDITION:
+            # print("Updating the policy")
+            # get original values
+            params = self.approx_policy.getParams()
+            old_action = self.approx_policy.computeOutput(list(self.state_t))
+            policy_gradient = self.approx_policy.calculateGradient()
+
+            # now update
+            if CONFIG["actor update rule"] == "cacla":
+                # policy.setParams(params + actor_config["alpha"] * (policy_gradient * exploration))
+                X, T = self.traces_policy.getTraces()
+                p = self.approx_policy.getParams()
+                #print("Number of traces: {0}".format(len(T)))
+                for x, trace in zip(X, T):
+                    # print("updating critic using gradient vector: {0}\t{1}".format(x, trace))
+                    p += actor_config["alpha"] * (x * trace) * exploration
+                self.approx_policy.setParams(p)
+                # self.approx_policy_greedy.setParams(p)
+            else:
+                self.approx_policy.setParams(params + actor_config["alpha"] * (policy_gradient * td_error))
+                # self.approx_policy_greedy.setParams(params + actor_config["alpha"] * (policy_gradient * td_error))
+
+    def run(self):
+        # Loop number of runs
+        for run in range(CONFIG["num_runs"]):
+            # Create logging directory and files
+            results_dir = "/home/gordon/data/tmp/{0}{1}".format(self.results_dir_name, run)
+            if not os.path.exists(results_dir):
+                os.makedirs(results_dir)
+            filename = os.path.basename(sys.argv[0])
+            os.system("cp {0} {1}".format(filename, results_dir))
+
+            f_returns = open("{0}{1}".format(results_dir, "/EpisodeReturn.fso"), "w", 1)
+            # f_returns_greedy = open("{0}{1}".format(results_dir, "/GreedyEpisodeReturn.fso"), "w", 1)
+
+            # env_name = 'MountainCarContinuous-v0'
+            env_name = 'Pendulum-v0'
+            self.env = gym.make(env_name)
+            self.env = wrappers.Monitor(self.env, directory="{0}_gym".format(results_dir), force=True)
+            self.env.seed(0)
+            # self.env_greedy = gym.make(env_name)
+
+            # policies and critics
+            self.approx_critic = ANNApproximator(actor_config["num_input_dims"],
+                                            actor_config["num_hidden_units"], hlayer_activation_func="tanh")
+            self.approx_policy = ANNApproximator(actor_config["num_input_dims"], actor_config["num_hidden_units"], hlayer_activation_func="tanh")
+            # self.approx_policy_greedy = ANNApproximator(actor_config["num_input_dims"], actor_config["num_hidden_units"], hlayer_activation_func="tanh")
+            prev_critic_gradient = np.zeros(self.approx_critic.getParams().shape)
+
+            # Set up trace objects
+            if CONFIG["critic algorithm"] == "ann_trad":
+                self.traces_critic = Traces(CONFIG["lambda"], CONFIG["min_trace_value"])
+            elif CONFIG["critic algorithm"] == "ann_true":
+                self.traces_critic = TrueTraces(critic_config["alpha"], CONFIG["gamma"], CONFIG["lambda"])
+            self.traces_policy = Traces(CONFIG["lambda"], CONFIG["min_trace_value"])
+
+            for episode_number in range(CONFIG["num_episodes"]):
+                reward_cum = 0.0
+                reward_cum_greedy = 0.0
+
+                if episode_number % CONFIG["log_actions"] == 0:
+                    f_actions = open("{0}{1}".format(results_dir, "/actions{0}.csv".format(episode_number)), "w", 1)
+                    # f_actions_greedy = open("{0}{1}".format(results_dir, "/greedy_actions{0}.csv".format(episode_number)), "w", 1)
+
+                # reset everything for the next episode
+                self.traces_critic.reset()
+                self.traces_policy.reset()
+                observation = self.env.reset()
+                # self.env_greedy.reset()
+
+                episode_ended = False
+                episode_ended_learning = False
+                # episode_ended_greedy = False
+
+                for step_number in range(CONFIG["max_num_steps"]):
+                    # Update the state for timestep t
+                    # self.update_state_t()
+                    self.state_t = deepcopy(observation)
+
+                    # action_t_greedy = self.approx_policy_greedy.computeOutput(list(self.state_t_greedy))
+                    action_t_deterministic = self.approx_policy.computeOutput(list(self.state_t))
+                    if step_number % 5 == 0:
+                        exploration = np.random.normal(0.0, CONFIG["exploration_sigma"])
+                    action_t = np.clip(action_t_deterministic + exploration, -2, 2)
+
+                    observation, reward, episode_ended_learning, diagnostics = self.env.step([action_t])
+                    self.state_t_plus_1 = deepcopy(observation)
+                    # self.env_greedy.performAction(action_t_greedy)
+
+                    # Update the state for timestep t + 1, after action is performed
+                    # self.update_state_t_p1(next_state)
+
+                    if self.last_action is None:
+                        self.last_action = action_t
+                    # if self.last_action_greedy is None:
+                    #     self.last_action_greedy = action_t_greedy
+                    # action_diff = self.last_action - action_t_deterministic
+                    # reward = self.env.getReward(action_diff)
+                    # print("action {0} reward: {1}".format(action_t, reward))
+                    self.last_action = deepcopy(action_t_deterministic)
+
+                    # Always log the greedy actions
+                    # if episode_number % CONFIG["log_actions"] == 0:
+                        # if step_number == 0:
+                        #     state_keys = list(self.state_t_greedy.keys())
+                        #     state_keys.append("action")
+                        #     label_logging_format = "#{" + "}\t{".join(
+                        #         [str(state_keys.index(el)) for el in state_keys]) + "}\n"
+                        #     f_actions_greedy.write(label_logging_format.format(*state_keys))
+                        #
+                        # logging_list = list(self.state_t_greedy)
+                        # logging_list.append(action_t_greedy)
+                        #
+                        # action_logging_format = "{" + "}\t{".join(
+                        #     [str(logging_list.index(el)) for el in logging_list]) + "}\n"
+                        # f_actions_greedy.write(action_logging_format.format(*logging_list))
+
+                    if not episode_ended_learning:
+                        # ---- Critic Update ----
+                        (td_error, critic_gradient, state_t_value, state_tp1_value) = self.update_critic(reward)
+
+                        # ---- Policy Update -------
+                        self.update_policy(td_error, exploration)
+
+                        # only log the learning actions whilst learning
+                        if episode_number % CONFIG["log_actions"] == 0:
+                            # if step_number == 0:
+                        #     #     state_keys = list(self.state_t.keys())
+                        #     #     state_keys.append("exploration")
+                        #     #     state_keys.append("reward")
+                        #     #     state_keys.append("tde")
+                        #     #     state_keys.append("st")
+                        #     #     state_keys.append("stp1")
+                        #     #     state_keys.append("explore_action")
+                        #     #     state_keys.append("action")
+                        #     #     label_logging_format = "#{" + "}\t{".join(
+                        #     #         [str(state_keys.index(el)) for el in state_keys]) + "}\n"
+                        #     #     f_actions.write(label_logging_format.format(*state_keys))
+                        #
+                            logging_list = list(self.state_t)
+                        #     logging_list.append(exploration)
+                        #     logging_list.append(reward)
+                        #     logging_list.append(td_error)
+                        #     logging_list.append(state_t_value)
+                        #     logging_list.append(state_tp1_value)
+                            logging_list.append(action_t)
+                            logging_list.append(action_t_deterministic)
+                            action_logging_format = "{" + "}\t{".join(
+                                [str(logging_list.index(el)) for el in logging_list]) + "}\n"
+                            f_actions.write(action_logging_format.format(*logging_list))
+
+                        prev_critic_gradient = deepcopy(critic_gradient)
+                    
+                        reward_cum += reward
+                    # if not episode_ended_greedy:
+                    #     reward_cum_greedy += self.env_greedy.getReward(action_t_greedy - self.last_action_greedy)
+                    # self.last_action_greedy = deepcopy(action_t_greedy)
+                    # episode_ended_learning = self.env.episodeEnded()
+                    # episode_ended_greedy = self.env_greedy.episodeEnded()
+                    self.state_t = deepcopy(self.state_t_plus_1)
+
+                    if episode_ended_learning:# and episode_ended_greedy:
+                        # episode complete, start a new one
+                        break
+                # episode either ended early due to failure or completed max number of steps
+                print("Episode ended - Learning {0} {1}".format(episode_number, reward_cum))
+                # print("Episode ended - Greedy {0} {1}".format(episode_number, reward_cum_greedy))
+                last_150_avg = sum(self.last_150_episode_returns.getWindow(reward_cum_greedy)) / 150.0
+
+                f_returns.write("{0}\t{1}\n".format(episode_number, reward_cum))
+                # f_returns_greedy.write("{0}\t{1}\n".format(episode_number, reward_cum_greedy))
+                if last_150_avg > 1995:
+                    break
+
+
+if __name__ == '__main__':
+    agent = CartPoleSimulation()
+    agent.run()
