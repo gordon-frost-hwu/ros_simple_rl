@@ -10,5 +10,7 @@
 
 	<!-- Coordinator to combine the outputs of the above independent behaviours -->
     <node name="coordinator"         pkg="ros_simple_rl" type="coordinator_full.py"             output="screen"/>
+    
+    <node name="goal_perception"   pkg="ros_simple_rl" type="perception_simulation_module.py"   output="log"/>
 	<!--</group>-->
 </launch>
