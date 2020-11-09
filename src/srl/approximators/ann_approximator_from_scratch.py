@@ -5,7 +5,7 @@
 import numpy as np
 from math import exp
 from copy import deepcopy
-from variable_normalizer import DynamicNormalizer
+from utilities.variable_normalizer import DynamicNormalizer
 
 scale = DynamicNormalizer(input_range=[0.0, 1.0], output_range=[-1.0, 1.0])
 # Sigmoid activation function for hidden layer nuerons

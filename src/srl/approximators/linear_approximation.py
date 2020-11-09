@@ -3,7 +3,7 @@
 import numpy as np
 from copy import deepcopy
 import time
-from useful_math_functions import isclose
+from utilities.useful_math_functions import isclose
 
 # import matplotlib.pyplot as plt
 # plt.ion()

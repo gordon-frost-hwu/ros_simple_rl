@@ -2,7 +2,7 @@
 
 from srl.basis_functions.mmlf_fourier import Fourier
 # from pyrl.basis.tilecode import TileCodingBasis
-from gaussian import gaussian1D
+from utilities.gaussian import gaussian1D
 import numpy as np
 
 

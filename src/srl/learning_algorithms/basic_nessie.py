@@ -14,7 +14,7 @@ from srl.basis_functions.simple_basis_functions import RBFBasisFunctions as Basi
 from srl.approximators.linear_approximation import LinearApprox
 from srl.approximators.ann_approximator_from_scratch import ANNApproximator
 from srl.useful_classes.rl_traces import Traces, TrueTraces
-from orstein_exploration import OUNoise
+from utilities.orstein_exploration import OUNoise
 
 from srl.environments.ros_behaviour_interface import ROSBehaviourInterface
 from srl.useful_classes.ros_environment_goals import EnvironmentInfo
@@ -22,8 +22,8 @@ from srl.useful_classes.ros_thruster_wrapper import Thrusters
 
 from srl.learning_algorithms.true_online_td_lambda import TrueOnlineTDLambda
 from srl.learning_algorithms.stober_td_learning import TDLinear
-from variable_normalizer import DynamicNormalizer
-from moving_differentiator import SlidingWindow
+from utilities.variable_normalizer import DynamicNormalizer
+from utilities.moving_differentiator import SlidingWindow
 
 actor_config = {
     "approximator_name": "policy",
@@ -42,7 +42,7 @@ critic_config = {
     "num_input_dims": 2
 }
 CONFIG = {
-    "test_policy": True,
+    "test_policy": False,
     "generate_initial_weights": False,
     "log_actions": 1,
     "log_traces": False,

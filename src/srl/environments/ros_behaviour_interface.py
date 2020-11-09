@@ -7,7 +7,7 @@ from std_srvs.srv import Empty, EmptyResponse
 from std_msgs.msg import Bool
 from vehicle_interface.msg import Vector6, PilotRequest
 from vehicle_interface.srv import BooleanService, BooleanServiceRequest
-from nav_class import Nav
+from utilities.nav_class import Nav
 import random
 import numpy as np
 
