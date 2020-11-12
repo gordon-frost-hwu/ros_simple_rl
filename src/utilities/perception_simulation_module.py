@@ -60,7 +60,7 @@ if __name__=='__main__':
     pub = rospy.Publisher("/goal_points_data", Goals, queue_size=1)
     global new_goal
     global new_ip
-    new_goal = Vector6(values=[10, 10, 0, 0, 0, 0])
+    new_goal = Vector6(values=[20, 0, 0, 0, 0, 0])
     new_ip = Vector6(values=[0, 0, 0, 0, 0, 0])
     goal_sub = rospy.Subscriber("/behaviours/goal", BehavioursGoal, goalCallback)
 
