@@ -11,7 +11,7 @@ from behaviours.behaviour import Behaviour
 import numpy as np
 from vehicle_interface.msg import PilotRequest, Vector6
 from srv_msgs.srv import ChangeParam, ChangeParamResponse
-from PID import PID
+from utilities.PID import PID
 
 GAUSSIAN_VARIANCE = 3.0     # Open parameter which has a MASSIVE effect on resulting velocity request
 DISTANCE_OFFSET = 2.5
