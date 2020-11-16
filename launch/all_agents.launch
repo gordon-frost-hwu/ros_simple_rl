@@ -8,6 +8,6 @@
     <!-- Load a robot model should RVIZ be used -->
     <!--<param name="robot_description" command="cat $(find osl_uwsim_scenario)/sim/robot/nessie.urdf"/>-->
     
-    <include file="$(find ros_simple_rl)/launch/behaviours_thruster_underactuated.launch"/>
+    <include file="$(find ros_simple_rl)/launch/behaviours_nessie_pid.launch"/>
 
 </launch>

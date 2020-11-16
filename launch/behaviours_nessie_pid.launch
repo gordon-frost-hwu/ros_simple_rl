@@ -9,8 +9,10 @@
 
 	<!--<node name="yaw_behaviour"       pkg="ros_simple_rl" type="nessie_yaw_pid.py"		        output="log"/>-->
 	<node name="yaw_behaviour"       pkg="ros_simple_rl" type="yaw_behaviour_thruster.py"		output="log"/>
+    <node name="goal_perception"   pkg="ros_simple_rl" type="perception_simulation_module.py"   output="log"/>
 
 	<!-- Coordinator to combine the outputs of the above independent behaviours -->
     <node name="coordinator"         pkg="ros_simple_rl" type="coordinator_full_pid.py"        output="screen"/>
+
 	<!--</group>-->
 </launch>
