@@ -10,11 +10,11 @@ from srl.useful_classes.ros_environment_goals import EnvironmentInfo
 from srl.useful_classes.ros_thruster_wrapper import Thrusters
 from vehicle_interface.msg import FloatArray
 from utilities.optimal_control_response import optimal_control_response
-from variable_normalizer import DynamicNormalizer
-from moving_differentiator import SlidingWindow
+from utilities.variable_normalizer import DynamicNormalizer
+from utilities.moving_differentiator import SlidingWindow
 
 CONFIG = {
-    "run_time": 15,
+    "run_time": 30,
 }
 
 class PilotPidProcess(object):
@@ -82,16 +82,15 @@ class PilotPidProcess(object):
         rospy.set_param("/pilot/controller/pos_n/kp", float(posP))
         rospy.set_param("/pilot/controller/pos_n/ki", float(posI))
         rospy.set_param("/pilot/controller/pos_n/kd", float(posD))
-        rospy.set_param("/pilot/controller/vel_r/kp", float(velP))
-        rospy.set_param("/pilot/controller/vel_r/ki", float(velI))
-        rospy.set_param("/pilot/controller/vel_r/kd", float(velD))
+        # rospy.set_param("/pilot/controller/vel_r/kp", float(velP))
+        # rospy.set_param("/pilot/controller/vel_r/ki", float(velI))
+        # rospy.set_param("/pilot/controller/vel_r/kd", float(velD))
         self.env.enable_pilot(True)
         self.env.enable_pilot(False)
         self.env.enable_pilot(True)
 
     def calculate_fitness(self, response):
-        diff = abs(response) - abs(self.baseline_response)
-        max_idx = 100   # response.shape[0]
+        max_idx = response.shape[0]
         step_errors = []
 
         for idx in range(max_idx):
@@ -108,6 +107,7 @@ class PilotPidProcess(object):
         return fitness
 
     def get_response(self, id, individual):
+
         # reset stuff for the run
         self.env.nav_reset()
         # Set usable gains for DoHover action to get to initial position again
@@ -121,7 +121,7 @@ class PilotPidProcess(object):
         self.prev_angle_dt_tp1 = 0.0
 
         # Set the gains to those of the individual/solution
-        self.setPidGains(individual[0], 0, individual[1], individual[2], 0, individual[3])
+        self.setPidGains(individual[0], individual[1], individual[2], 0, 0, 0)
 
         # create log file
         f_actions = open("{0}{1}".format(self.results_dir, "/actions{0}.csv".format(id)), "w", 1)
@@ -145,14 +145,14 @@ class PilotPidProcess(object):
             # log the current state information
             if first_step:
                 first_step = False
-                state_keys = self.state_t.keys()
+                state_keys = list(self.state_t.keys())
                 state_keys.append("baseline_angle")
                 state_keys.append("action")
                 label_logging_format = "#{" + "}\t{".join(
                     [str(state_keys.index(el)) for el in state_keys]) + "}\n"
                 f_actions.write(label_logging_format.format(*state_keys))
 
-            logging_list = self.state_t.values()
+            logging_list = list(self.state_t.values())
             logging_list.append(self.baseline_response[timestep, 1])
             logging_list.append(self.pos_pid_output[5])
             action_logging_format = "{" + "}\t{".join(
