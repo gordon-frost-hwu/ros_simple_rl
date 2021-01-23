@@ -11,5 +11,6 @@ def optimal_control_response():
 def func(x):
     amplitude = 0.50  # np.pi / 2.0
     y_offset = -0.50  # -(np.pi / 2.0)
-    result = (amplitude * (1 / (1 + np.exp(-0.2 * (x - 30))))) + y_offset
+    # result = (amplitude * (1 / (1 + np.exp(-0.2 * (x - 30))))) + y_offset
+    result = (amplitude * (1 / (1 + np.exp(-0.15 * (x - 30))))) + y_offset
     return result
