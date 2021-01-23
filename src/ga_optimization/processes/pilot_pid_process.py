@@ -5,7 +5,6 @@ import rospy
 import time
 
 from copy import deepcopy
-from srl.environments.ros_behaviour_interface import ROSBehaviourInterface
 from srl.useful_classes.ros_environment_goals import EnvironmentInfo
 from srl.useful_classes.ros_thruster_wrapper import Thrusters
 from vehicle_interface.msg import FloatArray
@@ -18,7 +17,7 @@ CONFIG = {
 }
 
 class PilotPidProcess(object):
-    def __init__(self, results_parent_dir):
+    def __init__(self, env, results_parent_dir):
         self.results_dir = results_parent_dir
         self.position_normaliser = DynamicNormalizer([-2.4, 2.4], [-1.0, 1.0])
         self.position_deriv_normaliser = DynamicNormalizer([-1.75, 1.75], [-1.0, 1.0])
@@ -29,7 +28,7 @@ class PilotPidProcess(object):
         self.last_150_episode_returns = SlidingWindow(150)
 
         self.thrusters = Thrusters()
-        self.env = ROSBehaviourInterface()
+        self.env = env
         self.environment_info = EnvironmentInfo()
 
         sub_pilot_position_controller_output = rospy.Subscriber("/pilot/position_pid_output", FloatArray,

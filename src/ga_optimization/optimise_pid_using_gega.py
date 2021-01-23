@@ -15,6 +15,7 @@ from directory_manager import DirectoryManager
 # Autonomous Learning Library imports
 from all.logging import ExperimentWriter
 from mdp_server import MDPToNessieServer
+from srl.environments.ros_behaviour_interface import ROSBehaviourInterface
 
 # GA imports
 import gega
@@ -26,7 +27,7 @@ VALIDATION_DIR_BASENAME = "gega_pid_validation"
 LEARNING_DIR_BASENAME = "pid_run"
 
 class Optimise(object):
-    def __init__(self, args, write_loss=False):
+    def __init__(self, args, ros_env, write_loss=False):
         self.args = args
         self._write_loss = write_loss
 
@@ -42,7 +43,7 @@ class Optimise(object):
         
         self.logger.initialise(self.directory_manager["optimisation"])
         
-        self.process = PilotPidProcess(result_dir)
+        self.process = PilotPidProcess(ros_env, result_dir)
 
         self.ind_lookup = {}
         self.individual_id = 0
@@ -143,8 +144,10 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
+    ros_env = ROSBehaviourInterface()
+
     for _ in range(args.repeat):
-        optimiser = Optimise(args)
+        optimiser = Optimise(args, ros_env)
         if args.validate:
             optimiser.run_validation()
         else:
