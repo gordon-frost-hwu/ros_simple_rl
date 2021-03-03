@@ -50,10 +50,9 @@ class Optimise(object):
         self.run_count = 1
 
 
-    def run_validation(self):
+    def run_validation(self, individual):
         all_fitness = []
-        for i in range(5):
-            individual = np.array([0.5, 0.9194994491098809, 0.46860466129221917])
+        for i in range(2):
             control_response = self.process.get_response(i, individual)
             avg_fitness = self.process.calculate_fitness(control_response)
             all_fitness.append(avg_fitness)
@@ -142,14 +141,29 @@ if __name__ == "__main__":
         "--validate", action='store_true', help="Run validation of individual"
     )
 
+    parser.add_argument(
+        "--individuals", type=str, default=None, help="Pass a list of indivudals from csv file"
+    )
+
     args = parser.parse_args()
 
     ros_env = ROSBehaviourInterface()
 
     for _ in range(args.repeat):
-        optimiser = Optimise(args, ros_env)
+        
         if args.validate:
-            optimiser.run_validation()
+            if args.individuals is None:
+                individual = np.array([0.5, 0.9194994491098809, 0.46860466129221917])
+                optimiser = Optimise(args, ros_env)
+                optimiser.run_validation(individual)
+            else:
+                import pandas as pd
+                inds = pd.read_csv(args.individuals, delimiter='\t')
+                for individual in inds.values:
+                    individual = np.array(individual[1:4])
+                    optimiser = Optimise(args, ros_env)
+                    optimiser.run_validation(individual)
+
         else:
             optimiser.run_optimisation()
 
